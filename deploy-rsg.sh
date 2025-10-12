@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# RSG RedM Framework - Installation Script v1.3
+# RSG RedM Framework - Installation Script v1.2
 # + Password confirmation + Real-time recipe + PIN display + Uninstall
 
 # ============================================
