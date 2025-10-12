@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# RSG RedM Framework - Installation Script v2.3
-# Interactive configuration with smart defaults
+# RSG RedM Framework - Installation Script v2.4
+# Interactive configuration with fixed input handling
 
 # ============================================
 # COLORS
@@ -122,7 +122,7 @@ check_dependencies() {
 }
 
 # ============================================
-# USER INPUT WITH SMART DEFAULTS
+# USER INPUT WITH SMART DEFAULTS (FIXED)
 # ============================================
 get_user_input() {
     clear
@@ -136,7 +136,8 @@ get_user_input() {
     # 1. CFX License Key (REQUIRED - no default)
     print_message "$BOLD" "━━━ Server Configuration ━━━"
     while [[ -z "$CFX_LICENSE" ]]; do
-        read -p "$(echo -e ${GREEN}CFX License Key ${YELLOW}[required]${NC}: )" CFX_LICENSE
+        echo -n -e "${GREEN}CFX License Key ${YELLOW}[required]${NC}: "
+        read -r CFX_LICENSE < /dev/tty
         if [[ -z "$CFX_LICENSE" ]]; then
             print_message "$RED" "   ❌ License key is required! Get one from: https://keymaster.fivem.net"
         fi
@@ -144,7 +145,8 @@ get_user_input() {
     
     # 2. Server Name (REQUIRED - no default)
     while [[ -z "$SERVER_NAME" ]]; do
-        read -p "$(echo -e ${GREEN}Server Name ${YELLOW}[required]${NC}: )" SERVER_NAME
+        echo -n -e "${GREEN}Server Name ${YELLOW}[required]${NC}: "
+        read -r SERVER_NAME < /dev/tty
         if [[ -z "$SERVER_NAME" ]]; then
             print_message "$RED" "   ❌ Server name is required!"
         fi
@@ -152,7 +154,8 @@ get_user_input() {
     
     # 3. Max Clients (optional - default 32)
     echo
-    read -p "$(echo -e ${GREEN}Max Players ${CYAN}[${MAX_CLIENTS}]${NC}: )" input_max_clients
+    echo -n -e "${GREEN}Max Players ${CYAN}[${MAX_CLIENTS}]${NC}: "
+    read -r input_max_clients < /dev/tty
     if [[ ! -z "$input_max_clients" ]]; then
         MAX_CLIENTS=$input_max_clients
     fi
@@ -161,7 +164,8 @@ get_user_input() {
     # 4. Installation Directory (optional - default /home/RedM)
     echo
     local default_install_dir="/home/RedM"
-    read -p "$(echo -e ${GREEN}Install Directory ${CYAN}[${default_install_dir}]${NC}: )" INSTALL_DIR
+    echo -n -e "${GREEN}Install Directory ${CYAN}[${default_install_dir}]${NC}: "
+    read -r INSTALL_DIR < /dev/tty
     if [[ -z "$INSTALL_DIR" ]]; then
         INSTALL_DIR=$default_install_dir
     fi
@@ -172,14 +176,16 @@ get_user_input() {
     print_message "$BOLD" "━━━ Database Configuration ━━━"
     
     # Database Name
-    read -p "$(echo -e ${GREEN}Database Name ${CYAN}[${DB_NAME}]${NC}: )" input_db_name
+    echo -n -e "${GREEN}Database Name ${CYAN}[${DB_NAME}]${NC}: "
+    read -r input_db_name < /dev/tty
     if [[ ! -z "$input_db_name" ]]; then
         DB_NAME=$input_db_name
     fi
     print_message "$CYAN" "   → Database: ${DB_NAME}"
     
     # Database User
-    read -p "$(echo -e ${GREEN}Database User ${CYAN}[${DB_USER}]${NC}: )" input_db_user
+    echo -n -e "${GREEN}Database User ${CYAN}[${DB_USER}]${NC}: "
+    read -r input_db_user < /dev/tty
     if [[ ! -z "$input_db_user" ]]; then
         DB_USER=$input_db_user
     fi
@@ -187,7 +193,8 @@ get_user_input() {
     
     # Database Password (REQUIRED - no default)
     while [[ -z "$DB_PASSWORD" ]]; do
-        read -sp "$(echo -e ${GREEN}Database Password ${YELLOW}[required]${NC}: )" DB_PASSWORD
+        echo -n -e "${GREEN}Database Password ${YELLOW}[required]${NC}: "
+        read -rs DB_PASSWORD < /dev/tty
         echo
         if [[ -z "$DB_PASSWORD" ]]; then
             print_message "$RED" "   ❌ Database password is required!"
@@ -196,7 +203,8 @@ get_user_input() {
     print_message "$CYAN" "   → Password set"
     
     # Database Port
-    read -p "$(echo -e ${GREEN}Database Port ${CYAN}[${DB_PORT}]${NC}: )" input_db_port
+    echo -n -e "${GREEN}Database Port ${CYAN}[${DB_PORT}]${NC}: "
+    read -r input_db_port < /dev/tty
     if [[ ! -z "$input_db_port" ]]; then
         DB_PORT=$input_db_port
     fi
@@ -207,14 +215,16 @@ get_user_input() {
     print_message "$BOLD" "━━━ Network Ports ━━━"
     
     # Server Port
-    read -p "$(echo -e ${GREEN}Server Port ${CYAN}[${SERVER_PORT}]${NC}: )" input_server_port
+    echo -n -e "${GREEN}Server Port ${CYAN}[${SERVER_PORT}]${NC}: "
+    read -r input_server_port < /dev/tty
     if [[ ! -z "$input_server_port" ]]; then
         SERVER_PORT=$input_server_port
     fi
     print_message "$CYAN" "   → Server: ${SERVER_PORT}"
     
     # txAdmin Port
-    read -p "$(echo -e ${GREEN}txAdmin Port ${CYAN}[${TXADMIN_PORT}]${NC}: )" input_txadmin_port
+    echo -n -e "${GREEN}txAdmin Port ${CYAN}[${TXADMIN_PORT}]${NC}: "
+    read -r input_txadmin_port < /dev/tty
     if [[ ! -z "$input_txadmin_port" ]]; then
         TXADMIN_PORT=$input_txadmin_port
     fi
@@ -223,7 +233,8 @@ get_user_input() {
     # 7. Admin Configuration (Optional)
     echo
     print_message "$BOLD" "━━━ Admin Configuration (Optional) ━━━"
-    read -p "$(echo -e ${GREEN}Your Steam HEX ${CYAN}[optional - skip with ENTER]${NC}: )" STEAM_HEX
+    echo -n -e "${GREEN}Your Steam HEX ${CYAN}[optional - skip with ENTER]${NC}: "
+    read -r STEAM_HEX < /dev/tty
     if [[ ! -z "$STEAM_HEX" ]]; then
         print_message "$CYAN" "   → Steam HEX: ${STEAM_HEX}"
     else
@@ -260,7 +271,8 @@ get_user_input() {
     
     # Confirmation
     echo
-    read -p "$(echo -e ${YELLOW}Continue with this configuration? [Y/n]: ${NC})" confirm
+    echo -n -e "${YELLOW}Continue with this configuration? [Y/n]: ${NC}"
+    read -r confirm < /dev/tty
     if [[ "$confirm" =~ ^[Nn]$ ]]; then
         print_message "$YELLOW" "Installation cancelled by user"
         exit 0
@@ -765,7 +777,47 @@ else
 fi
 EOF
 
-    chmod +x "${INSTALL_DIR}"/{start,stop,restart,attach}.sh
+    cat > "${INSTALL_DIR}/update.sh" <<'EOF'
+#!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ARTIFACT_URL="https://runtime.fivem.net/artifacts/fivem/build_proot_linux/master/"
+
+echo "🔍 Checking for updates..."
+
+HTML=$(curl -s $ARTIFACT_URL)
+LINKS=$(echo "$HTML" | grep -oP 'href="\./\d{4,}[^"]+fx\.tar\.xz"' | sed 's/href="\.\/\([^"]*\)"/\1/')
+
+if [ -z "$LINKS" ]; then
+    echo "❌ No builds found"
+    exit 1
+fi
+
+LATEST=$(echo "$LINKS" | grep -oP '^\d{4,}' | sort -nr | head -n 1)
+FILE=$(echo "$LINKS" | grep "^$LATEST")
+URL="${ARTIFACT_URL}${FILE}"
+
+echo "📦 Latest: $LATEST"
+read -p "Install? [y/N]: " confirm < /dev/tty
+
+if [[ $confirm == [Yy] ]]; then
+    "${SCRIPT_DIR}/stop.sh"
+    sleep 2
+    
+    cd "${SCRIPT_DIR}/server"
+    rm -rf alpine.backup
+    mv alpine alpine.backup 2>/dev/null || true
+    
+    echo "📥 Downloading..."
+    wget -q --show-progress "$URL" -O fx.tar.xz
+    tar -xf fx.tar.xz
+    rm fx.tar.xz
+    
+    echo "✅ Updated to $LATEST"
+    "${SCRIPT_DIR}/start.sh"
+fi
+EOF
+
+    chmod +x "${INSTALL_DIR}"/{start,stop,restart,attach,update}.sh
     print_message "$GREEN" "✅ Scripts created"
 }
 
@@ -796,7 +848,8 @@ EOF
     systemctl daemon-reload
     print_message "$GREEN" "✅ Service created"
     
-    read -p "$(echo -e ${YELLOW}Enable auto-start? [y/N]: ${NC})" auto_start
+    echo -n -e "${YELLOW}Enable auto-start? [y/N]: ${NC}"
+    read -r auto_start < /dev/tty
     if [[ "$auto_start" =~ ^[Yy]$ ]]; then
         systemctl enable redm-rsg.service
         print_message "$GREEN" "✅ Auto-start enabled"
@@ -846,6 +899,7 @@ display_summary() {
     echo "  ${INSTALL_DIR}/start.sh"
     echo "  ${INSTALL_DIR}/stop.sh"
     echo "  ${INSTALL_DIR}/attach.sh"
+    echo "  ${INSTALL_DIR}/update.sh"
     echo
     print_message "$CYAN" "Access:"
     echo "  F8: connect $server_ip:$SERVER_PORT"
@@ -875,8 +929,8 @@ main() {
     echo -e "${CYAN}"
     cat << "EOF"
 ╔═══════════════════════════════════════════════════════╗
-║       RSG RedM Framework Installer v2.3               ║
-║       Interactive Setup with Smart Defaults           ║
+║       RSG RedM Framework Installer v2.4               ║
+║       Interactive Setup with Fixed Input              ║
 ╚═══════════════════════════════════════════════════════╝
 EOF
     echo -e "${NC}"
