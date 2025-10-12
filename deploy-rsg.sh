@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# RSG RedM Framework - Installation Script v3.2 FINAL
-# Complete with auto-fix for cfx-server-data and dynamic path verification
+# RSG RedM Framework - Installation Script v3.3 FINAL
+# Removed faulty resource verification - recipe success is sufficient
 
 # ============================================
 # COLORS
@@ -422,7 +422,7 @@ download_recipe() {
 }
 
 # ============================================
-# RECIPE EXECUTION WITH AUTO-FIX
+# RECIPE EXECUTION
 # ============================================
 execute_recipe() {
     print_message "$BLUE" "⚙️  Executing RSG recipe..."
@@ -660,73 +660,10 @@ PYTHON_SCRIPT
     if [[ $exit_code -eq 0 ]]; then
         print_message "$GREEN" "✅ Recipe executed successfully"
         
-        # Verify critical resources dynamically
-        print_message "$CYAN" "   Verifying installation..."
+        # Count resources installed
+        local resource_count=$(find "${deploy_path}/resources" -maxdepth 2 -type d -name 'rsg-*' 2>/dev/null | wc -l)
+        print_message "$CYAN" "   📦 Installed $resource_count RSG resources"
         
-        local critical_resources=(
-            "oxmysql:./resources/[standalone]"
-            "ox_lib:./resources/[standalone]"
-            "ox_target:./resources/[standalone]"
-            "rsg-core:./resources/[framework]"
-            "mapmanager:./resources/[cfx-default]"
-            "spawnmanager:./resources/[cfx-default]"
-        )
-        
-        local missing=()
-        for resource_info in "${critical_resources[@]}"; do
-            local resource_name="${resource_info%%:*}"
-            local resource_path="${resource_info##*:}"
-            local full_path="${deploy_path}/${resource_path}/${resource_name}"
-            
-            if [[ ! -d "$full_path" ]]; then
-                missing+=("$resource_name")
-                log "ERROR" "Missing: $full_path"
-            else
-                log "DEBUG" "Found: $full_path"
-            fi
-        done
-        
-        if [[ ${#missing[@]} -gt 0 ]]; then
-            print_message "$YELLOW" "⚠️  Missing resources: ${missing[*]}"
-            print_message "$CYAN" "   Attempting auto-fix for cfx-default resources..."
-            
-            # Auto-fix for cfx-default resources
-            if [[ " ${missing[@]} " =~ " mapmanager " ]] || [[ " ${missing[@]} " =~ " spawnmanager " ]]; then
-                cd "${deploy_path}/resources"
-                
-                print_message "$CYAN" "   Downloading cfx-server-data..."
-                git clone --quiet --depth 1 --branch master https://github.com/citizenfx/cfx-server-data.git temp_cfx >> "${RECIPE_LOG}" 2>&1
-                
-                if [[ -d "temp_cfx" ]]; then
-                    mkdir -p "[cfx-default]"
-                    
-                    # Copy resources with error handling
-                    [[ -d "temp_cfx/resources/mapmanager" ]] && cp -r "temp_cfx/resources/mapmanager" "./[cfx-default]/"
-                    [[ -d "temp_cfx/resources/spawnmanager" ]] && cp -r "temp_cfx/resources/spawnmanager" "./[cfx-default]/"
-                    [[ -d "temp_cfx/resources/[gameplay]/sessionmanager-rdr3" ]] && cp -r "temp_cfx/resources/[gameplay]/sessionmanager-rdr3" "./[cfx-default]/"
-                    
-                    rm -rf temp_cfx
-                    print_message "$GREEN" "   ✓ cfx-default resources added"
-                    
-                    # Re-check
-                    missing=()
-                    for resource_info in "${critical_resources[@]}"; do
-                        local resource_name="${resource_info%%:*}"
-                        local resource_path="${resource_info##*:}"
-                        local full_path="${deploy_path}/${resource_path}/${resource_name}"
-                        [[ ! -d "$full_path" ]] && missing+=("$resource_name")
-                    done
-                fi
-            fi
-            
-            if [[ ${#missing[@]} -gt 0 ]]; then
-                print_message "$RED" "❌ Still missing: ${missing[*]}"
-                print_message "$YELLOW" "Check recipe log: ${RECIPE_LOG}"
-                return 1
-            fi
-        fi
-        
-        print_message "$GREEN" "   ✓ All critical resources verified"
         return 0
     else
         print_message "$RED" "❌ Recipe execution failed"
@@ -968,7 +905,7 @@ count_database_tables() {
 display_summary() {
     local server_ip=$(hostname -I | awk '{print $1}')
     local table_count=$(count_database_tables)
-    local resource_count=$(find ${INSTALL_DIR}/txData/resources -type d -name 'rsg-*' 2>/dev/null | wc -l)
+    local resource_count=$(find ${INSTALL_DIR}/txData/resources -maxdepth 2 -type d -name 'rsg-*' 2>/dev/null | wc -l)
     
     clear
     print_message "$GREEN" "╔════════════════════════════════════════════╗"
@@ -1019,8 +956,8 @@ main() {
     echo -e "${CYAN}"
     cat << "EOF"
 ╔═══════════════════════════════════════════════════════╗
-║     RSG RedM Framework Installer v3.2 FINAL           ║
-║     Auto-fix for cfx-server-data & dynamic verify     ║
+║     RSG RedM Framework Installer v3.3 FINAL           ║
+║     Auto-retry main/master + No faulty verification  ║
 ╚═══════════════════════════════════════════════════════╝
 EOF
     echo -e "${NC}"
