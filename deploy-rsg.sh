@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# RSG RedM Framework - Installation Script v2.6
-# Fixed Python boolean conversion
+# RSG RedM Framework - Installation Script v3.0 FINAL
+# Complete rewrite with robust error handling
 
 # ============================================
 # COLORS
@@ -22,11 +22,12 @@ TIMESTAMP=$(date "+%Y%m%d_%H%M%S")
 LOG_DIR="/var/log/redm"
 LOG_FILE="${LOG_DIR}/redm_rsg_install_${TIMESTAMP}.log"
 LATEST_LOG_SYMLINK="${LOG_DIR}/latest.log"
+RECIPE_LOG="${LOG_DIR}/recipe_${TIMESTAMP}.log"
 
 # Verbose mode
 VERBOSE=false
 
-# Server Configuration with defaults
+# Server Configuration
 INSTALL_DIR=""
 CFX_LICENSE=""
 SERVER_NAME=""
@@ -53,24 +54,24 @@ check_stdin() {
         echo -e "${RED}❌ This script cannot be run via pipe (curl | bash)${NC}"
         echo ""
         echo "Please download and run it directly:"
-        echo ""
         echo "  wget https://your-url.com/rsg-installer.sh"
         echo "  chmod +x rsg-installer.sh"
         echo "  sudo ./rsg-installer.sh"
-        echo ""
         exit 1
     fi
 }
 
 # ============================================
-# LOGGING FUNCTIONS
+# LOGGING
 # ============================================
 setup_logging() {
     mkdir -p "${LOG_DIR}"
     touch "${LOG_FILE}"
+    touch "${RECIPE_LOG}"
     ln -sf "${LOG_FILE}" "${LATEST_LOG_SYMLINK}"
     log "INFO" "=== RSG RedM Installation Started ==="
     log "INFO" "Verbose mode: $VERBOSE"
+    log "INFO" "Recipe log: ${RECIPE_LOG}"
 }
 
 log() {
@@ -103,16 +104,17 @@ exec_cmd() {
 
 show_last_error() {
     print_message "$RED" "\n❌ Installation failed!"
-    print_message "$YELLOW" "📋 Last 20 lines of log:"
+    print_message "$YELLOW" "📋 Last 30 lines of log:"
     echo -e "${CYAN}"
-    tail -n 20 "${LOG_FILE}"
+    tail -n 30 "${LOG_FILE}"
     echo -e "${NC}"
     print_message "$YELLOW" "Full log: ${LOG_FILE}"
+    print_message "$YELLOW" "Recipe log: ${RECIPE_LOG}"
     print_message "$YELLOW" "\nRun with verbose: sudo bash $0 --verbose"
 }
 
 # ============================================
-# VALIDATION FUNCTIONS
+# VALIDATION
 # ============================================
 check_root() {
     if [[ $EUID -ne 0 ]]; then
@@ -151,107 +153,74 @@ get_user_input() {
     echo -e "${YELLOW}Press ENTER to use default values shown in [brackets]${NC}"
     echo ""
     
-    # 1. CFX License Key (REQUIRED)
     echo -e "${BOLD}━━━ Server Configuration ━━━${NC}"
     while true; do
         echo -ne "${GREEN}CFX License Key ${YELLOW}[required]${NC}: "
         read CFX_LICENSE
-        if [[ ! -z "$CFX_LICENSE" ]]; then
-            break
-        fi
-        echo -e "${RED}   ❌ License key is required! Get one from: https://keymaster.fivem.net${NC}"
+        [[ ! -z "$CFX_LICENSE" ]] && break
+        echo -e "${RED}   ❌ License key required! Get one from: https://keymaster.fivem.net${NC}"
     done
     
-    # 2. Server Name (REQUIRED)
     while true; do
         echo -ne "${GREEN}Server Name ${YELLOW}[required]${NC}: "
         read SERVER_NAME
-        if [[ ! -z "$SERVER_NAME" ]]; then
-            break
-        fi
-        echo -e "${RED}   ❌ Server name is required!${NC}"
+        [[ ! -z "$SERVER_NAME" ]] && break
+        echo -e "${RED}   ❌ Server name required!${NC}"
     done
     
-    # 3. Max Clients (optional)
     echo ""
     echo -ne "${GREEN}Max Players ${CYAN}[${MAX_CLIENTS}]${NC}: "
     read input_max_clients
-    if [[ ! -z "$input_max_clients" ]]; then
-        MAX_CLIENTS=$input_max_clients
-    fi
+    [[ ! -z "$input_max_clients" ]] && MAX_CLIENTS=$input_max_clients
     echo -e "${CYAN}   → Using: ${MAX_CLIENTS} players${NC}"
     
-    # 4. Installation Directory (optional)
     echo ""
     local default_install_dir="/home/RedM"
     echo -ne "${GREEN}Install Directory ${CYAN}[${default_install_dir}]${NC}: "
     read INSTALL_DIR
-    if [[ -z "$INSTALL_DIR" ]]; then
-        INSTALL_DIR=$default_install_dir
-    fi
+    [[ -z "$INSTALL_DIR" ]] && INSTALL_DIR=$default_install_dir
     echo -e "${CYAN}   → Installing to: ${INSTALL_DIR}${NC}"
     
-    # 5. Database Configuration
     echo ""
     echo -e "${BOLD}━━━ Database Configuration ━━━${NC}"
     
-    # Database Name
     echo -ne "${GREEN}Database Name ${CYAN}[${DB_NAME}]${NC}: "
     read input_db_name
-    if [[ ! -z "$input_db_name" ]]; then
-        DB_NAME=$input_db_name
-    fi
+    [[ ! -z "$input_db_name" ]] && DB_NAME=$input_db_name
     echo -e "${CYAN}   → Database: ${DB_NAME}${NC}"
     
-    # Database User
     echo -ne "${GREEN}Database User ${CYAN}[${DB_USER}]${NC}: "
     read input_db_user
-    if [[ ! -z "$input_db_user" ]]; then
-        DB_USER=$input_db_user
-    fi
+    [[ ! -z "$input_db_user" ]] && DB_USER=$input_db_user
     echo -e "${CYAN}   → User: ${DB_USER}${NC}"
     
-    # Database Password (REQUIRED)
     while true; do
         echo -ne "${GREEN}Database Password ${YELLOW}[required]${NC}: "
         read -s DB_PASSWORD
         echo ""
-        if [[ ! -z "$DB_PASSWORD" ]]; then
-            break
-        fi
-        echo -e "${RED}   ❌ Database password is required!${NC}"
+        [[ ! -z "$DB_PASSWORD" ]] && break
+        echo -e "${RED}   ❌ Database password required!${NC}"
     done
     echo -e "${CYAN}   → Password set${NC}"
     
-    # Database Port
     echo -ne "${GREEN}Database Port ${CYAN}[${DB_PORT}]${NC}: "
     read input_db_port
-    if [[ ! -z "$input_db_port" ]]; then
-        DB_PORT=$input_db_port
-    fi
+    [[ ! -z "$input_db_port" ]] && DB_PORT=$input_db_port
     echo -e "${CYAN}   → Port: ${DB_PORT}${NC}"
     
-    # 6. Network Ports
     echo ""
     echo -e "${BOLD}━━━ Network Ports ━━━${NC}"
     
-    # Server Port
     echo -ne "${GREEN}Server Port ${CYAN}[${SERVER_PORT}]${NC}: "
     read input_server_port
-    if [[ ! -z "$input_server_port" ]]; then
-        SERVER_PORT=$input_server_port
-    fi
+    [[ ! -z "$input_server_port" ]] && SERVER_PORT=$input_server_port
     echo -e "${CYAN}   → Server: ${SERVER_PORT}${NC}"
     
-    # txAdmin Port
     echo -ne "${GREEN}txAdmin Port ${CYAN}[${TXADMIN_PORT}]${NC}: "
     read input_txadmin_port
-    if [[ ! -z "$input_txadmin_port" ]]; then
-        TXADMIN_PORT=$input_txadmin_port
-    fi
+    [[ ! -z "$input_txadmin_port" ]] && TXADMIN_PORT=$input_txadmin_port
     echo -e "${CYAN}   → txAdmin: ${TXADMIN_PORT}${NC}"
     
-    # 7. Admin Configuration (Optional)
     echo ""
     echo -e "${BOLD}━━━ Admin Configuration (Optional) ━━━${NC}"
     echo -ne "${GREEN}Your Steam HEX ${CYAN}[optional - skip with ENTER]${NC}: "
@@ -262,7 +231,6 @@ get_user_input() {
         echo -e "${YELLOW}   → No Steam HEX (add manually later)${NC}"
     fi
     
-    # Display summary
     echo ""
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${GREEN}              Configuration Summary${NC}"
@@ -281,24 +249,18 @@ get_user_input() {
     echo -e "  Server Port:       ${CYAN}$SERVER_PORT${NC}"
     echo -e "  txAdmin Port:      ${CYAN}$TXADMIN_PORT${NC}"
     echo ""
-    if [[ ! -z "$STEAM_HEX" ]]; then
-        echo -e "${BOLD}Admin:${NC}"
-        echo -e "  Steam HEX:         ${CYAN}$STEAM_HEX${NC}"
-        echo ""
-    fi
+    [[ ! -z "$STEAM_HEX" ]] && echo -e "${BOLD}Admin:${NC}\n  Steam HEX:         ${CYAN}$STEAM_HEX${NC}\n"
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     
     log "INFO" "Configuration: Server=$SERVER_NAME, Install=$INSTALL_DIR, DB=$DB_NAME:$DB_PORT"
     
-    # Confirmation
     echo ""
     echo -ne "${YELLOW}Continue with this configuration? [Y/n]: ${NC}"
     read confirm
     if [[ "$confirm" =~ ^[Nn]$ ]]; then
-        print_message "$YELLOW" "Installation cancelled by user"
+        print_message "$YELLOW" "Installation cancelled"
         exit 0
     fi
-    
     echo ""
 }
 
@@ -307,21 +269,11 @@ get_user_input() {
 # ============================================
 check_new_artifact() {
     print_message "$CYAN" "🔍 Searching for latest RedM build..."
-    log "DEBUG" "Fetching from: $ARTIFACT_PAGE_URL"
-    
     local ARTIFACT_HTML=$(curl -s $ARTIFACT_PAGE_URL)
-    
-    if [[ -z "$ARTIFACT_HTML" ]]; then
-        print_message "$RED" "❌ Failed to fetch artifacts"
-        return 1
-    fi
+    [[ -z "$ARTIFACT_HTML" ]] && { print_message "$RED" "❌ Failed to fetch artifacts"; return 1; }
     
     local ARTIFACT_LINKS=$(echo "$ARTIFACT_HTML" | grep -oP 'href="\./\d{4,}[^"]+fx\.tar\.xz"' | sed 's/href="\.\/\([^"]*\)"/\1/')
-    
-    if [ -z "$ARTIFACT_LINKS" ]; then
-        print_message "$RED" "❌ No artifacts found"
-        return 1
-    fi
+    [[ -z "$ARTIFACT_LINKS" ]] && { print_message "$RED" "❌ No artifacts found"; return 1; }
     
     LATEST_ARTIFACT=$(echo "$ARTIFACT_LINKS" | grep -oP '^\d{4,}' | sort -nr | head -n 1)
     local LATEST_ARTIFACT_FILE=$(echo "$ARTIFACT_LINKS" | grep "^$LATEST_ARTIFACT")
@@ -336,8 +288,7 @@ download_artifact() {
     local dest=$1
     print_message "$BLUE" "📥 Downloading RedM (build ${LATEST_ARTIFACT})..."
     
-    mkdir -p "$dest"
-    cd "$dest"
+    mkdir -p "$dest" && cd "$dest"
     
     if [[ "$VERBOSE" == true ]]; then
         wget --show-progress "$FULL_ARTIFACT_URL" -O fx.tar.xz 2>&1 | tee -a "${LOG_FILE}"
@@ -345,26 +296,20 @@ download_artifact() {
         wget -q --show-progress "$FULL_ARTIFACT_URL" -O fx.tar.xz >> "${LOG_FILE}" 2>&1
     fi
     
-    if [[ $? -eq 0 ]]; then
-        print_message "$CYAN" "📦 Extracting..."
-        exec_cmd "tar -xf fx.tar.xz"
-        rm -f fx.tar.xz
-        
-        if [[ -d "alpine/opt/cfx-server/alpine" ]]; then
-            rm -rf "alpine/opt/cfx-server/alpine"
-        fi
-        
-        chmod +x run.sh
-        print_message "$GREEN" "✅ Artifact installed"
-        return 0
-    else
-        print_message "$RED" "❌ Download failed"
-        return 1
-    fi
+    [[ $? -ne 0 ]] && { print_message "$RED" "❌ Download failed"; return 1; }
+    
+    print_message "$CYAN" "📦 Extracting..."
+    exec_cmd "tar -xf fx.tar.xz"
+    rm -f fx.tar.xz
+    [[ -d "alpine/opt/cfx-server/alpine" ]] && rm -rf "alpine/opt/cfx-server/alpine"
+    chmod +x run.sh
+    
+    print_message "$GREEN" "✅ Artifact installed"
+    return 0
 }
 
 # ============================================
-# DEPENDENCY INSTALLATION
+# DEPENDENCIES
 # ============================================
 install_dependencies() {
     print_message "$BLUE" "📦 Installing dependencies..."
@@ -376,11 +321,7 @@ install_dependencies() {
         exit 1
     fi
     
-    local packages=(
-        "wget" "curl" "tar" "git" "xz-utils"
-        "mariadb-server" "mariadb-client"
-        "unzip" "screen" "jq" "python3" "python3-pip"
-    )
+    local packages=("wget" "curl" "tar" "git" "xz-utils" "mariadb-server" "mariadb-client" "unzip" "screen" "jq" "python3" "python3-pip")
     
     print_message "$CYAN" "   Installing: ${packages[*]}"
     if ! exec_cmd "DEBIAN_FRONTEND=noninteractive apt-get install -y ${packages[*]}"; then
@@ -390,16 +331,13 @@ install_dependencies() {
     fi
     
     print_message "$CYAN" "   Installing PyYAML..."
-    if ! exec_cmd "pip3 install pyyaml"; then
-        print_message "$YELLOW" "   ⚠️  Trying apt method..."
-        exec_cmd "apt-get install -y python3-yaml"
-    fi
+    exec_cmd "pip3 install pyyaml" || exec_cmd "apt-get install -y python3-yaml"
     
     print_message "$GREEN" "✅ Dependencies installed"
 }
 
 # ============================================
-# DATABASE FUNCTIONS
+# DATABASE
 # ============================================
 setup_mariadb() {
     print_message "$BLUE" "🗄️  Configuring MariaDB..."
@@ -459,36 +397,7 @@ validate_sql_connection() {
 }
 
 # ============================================
-# SQL VERIFICATION
-# ============================================
-verify_rsg_tables() {
-    print_message "$CYAN" "🔍 Verifying RSG tables..."
-    
-    local expected_tables=("players" "characters" "player_horses" "bank_accounts")
-    local missing=()
-    
-    for table in "${expected_tables[@]}"; do
-        local exists=$(mysql -u root -p"${DB_PASSWORD}" --port=${DB_PORT} -D "${DB_NAME}" -sse "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '${DB_NAME}' AND table_name = '${table}';" 2>/dev/null)
-        if [[ "$exists" == "0" ]]; then
-            missing+=("$table")
-        fi
-    done
-    
-    if [[ ${#missing[@]} -eq 0 ]]; then
-        print_message "$GREEN" "✅ All RSG tables present"
-        return 0
-    else
-        print_message "$YELLOW" "⚠️  Missing: ${missing[*]}"
-        return 1
-    fi
-}
-
-count_database_tables() {
-    mysql -u root -p"${DB_PASSWORD}" --port=${DB_PORT} -D "${DB_NAME}" -sse "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '${DB_NAME}';" 2>/dev/null
-}
-
-# ============================================
-# RECIPE PROCESSING (FIXED)
+# RECIPE DOWNLOAD
 # ============================================
 download_recipe() {
     print_message "$BLUE" "📥 Downloading RSG recipe..."
@@ -502,8 +411,9 @@ download_recipe() {
         wget -q --show-progress "$RSG_RECIPE_URL" -O "${recipe_dir}/rsgcore.yaml" >> "${LOG_FILE}" 2>&1
     fi
     
-    if [[ $? -eq 0 ]]; then
+    if [[ $? -eq 0 ]] && [[ -f "${recipe_dir}/rsgcore.yaml" ]]; then
         print_message "$GREEN" "✅ Recipe downloaded"
+        log "INFO" "Recipe size: $(wc -l < ${recipe_dir}/rsgcore.yaml) lines"
         return 0
     else
         print_message "$RED" "❌ Recipe download failed"
@@ -512,9 +422,14 @@ download_recipe() {
     fi
 }
 
+# ============================================
+# RECIPE EXECUTION (COMPLETE REWRITE)
+# ============================================
 execute_recipe() {
     print_message "$BLUE" "⚙️  Executing RSG recipe..."
-    print_message "$YELLOW" "⏱️  This may take 10-15 minutes..."
+    print_message "$YELLOW" "⏱️  This will take 10-15 minutes - DO NOT interrupt!"
+    print_message "$CYAN" "📝 Progress will be logged to: ${RECIPE_LOG}"
+    echo ""
     
     local recipe_file="${INSTALL_DIR}/recipe/rsgcore.yaml"
     local deploy_path="${INSTALL_DIR}/txData"
@@ -522,13 +437,8 @@ execute_recipe() {
     mkdir -p "$deploy_path"
     cd "$deploy_path"
     
-    # Convert bash boolean to Python boolean
-    local PYTHON_VERBOSE="False"
-    if [[ "$VERBOSE" == true ]]; then
-        PYTHON_VERBOSE="True"
-    fi
-    
-    python3 - <<PYTHON_SCRIPT
+    # Create Python script file
+    cat > /tmp/recipe_executor.py <<'PYTHON_SCRIPT'
 import yaml
 import os
 import subprocess
@@ -538,21 +448,22 @@ import shutil
 import time
 import sys
 
-VERBOSE = ${PYTHON_VERBOSE}
+log_file = sys.argv[1] if len(sys.argv) > 1 else "/var/log/redm/recipe.log"
 
-def log_info(msg):
-    print(f"[INFO] {msg}", flush=True)
-
-def log_error(msg):
-    print(f"[ERROR] {msg}", file=sys.stderr, flush=True)
+def log_msg(msg):
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    with open(log_file, 'a') as f:
+        f.write(f"{timestamp} {msg}\n")
+    print(msg, flush=True)
 
 def download_github(src, dest, ref="main", subpath=""):
-    log_info(f"Downloading {src}")
+    log_msg(f"[INFO] Downloading GitHub: {src}")
     try:
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
         cmd = ["git", "clone", "--quiet", "--depth", "1", "--branch", ref, src, dest]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         if result.returncode != 0:
-            log_error(f"Failed: {result.stderr}")
+            log_msg(f"[ERROR] Git clone failed: {result.stderr}")
             return False
         if subpath:
             subpath_full = os.path.join(dest, subpath)
@@ -560,36 +471,40 @@ def download_github(src, dest, ref="main", subpath=""):
                 for item in os.listdir(subpath_full):
                     shutil.move(os.path.join(subpath_full, item), os.path.join(dest, item))
                 shutil.rmtree(subpath_full)
-        log_info(f"✓ {os.path.basename(dest)}")
+        log_msg(f"[SUCCESS] ✓ {os.path.basename(dest)}")
         return True
+    except subprocess.TimeoutExpired:
+        log_msg(f"[ERROR] Timeout downloading {src}")
+        return False
     except Exception as e:
-        log_error(f"Failed: {e}")
+        log_msg(f"[ERROR] Failed: {e}")
         return False
 
 def download_file(url, path):
-    log_info(f"Downloading {os.path.basename(path)}")
+    log_msg(f"[INFO] Downloading file: {os.path.basename(path)}")
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         urllib.request.urlretrieve(url, path)
-        log_info(f"✓ Downloaded")
+        log_msg(f"[SUCCESS] ✓ Downloaded {os.path.basename(path)}")
         return True
     except Exception as e:
-        log_error(f"Failed: {e}")
+        log_msg(f"[ERROR] Failed: {e}")
         return False
 
 def unzip_file(src, dest):
-    log_info(f"Unzipping {os.path.basename(src)}")
+    log_msg(f"[INFO] Unzipping: {os.path.basename(src)}")
     try:
         os.makedirs(dest, exist_ok=True)
         with zipfile.ZipFile(src, 'r') as zip_ref:
             zip_ref.extractall(dest)
-        log_info(f"✓ Unzipped")
+        log_msg(f"[SUCCESS] ✓ Unzipped")
         return True
     except Exception as e:
-        log_error(f"Failed: {e}")
+        log_msg(f"[ERROR] Failed: {e}")
         return False
 
 def move_path(src, dest):
+    log_msg(f"[INFO] Moving: {os.path.basename(src)} -> {os.path.basename(dest)}")
     try:
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         if os.path.exists(dest):
@@ -598,95 +513,167 @@ def move_path(src, dest):
             else:
                 os.remove(dest)
         shutil.move(src, dest)
+        log_msg(f"[SUCCESS] ✓ Moved")
         return True
     except Exception as e:
-        log_error(f"Move failed: {e}")
+        log_msg(f"[ERROR] Move failed: {e}")
         return False
 
 def remove_path(path):
     try:
         if os.path.exists(path):
+            log_msg(f"[INFO] Removing: {path}")
             if os.path.isdir(path):
                 shutil.rmtree(path)
             else:
                 os.remove(path)
+            log_msg(f"[SUCCESS] ✓ Removed")
         return True
-    except:
+    except Exception as e:
+        log_msg(f"[ERROR] Failed: {e}")
         return False
 
 def query_database(sql_file, db_name, db_user, db_pass, db_port):
-    log_info(f"🗄️  Injecting SQL: {os.path.basename(sql_file)}")
+    log_msg(f"[INFO] 🗄️  Executing SQL: {os.path.basename(sql_file)}")
     if not os.path.exists(sql_file):
-        log_error(f"SQL not found: {sql_file}")
+        log_msg(f"[ERROR] SQL file not found: {sql_file}")
         return False
     try:
-        cmd = f"mysql -u {db_user} -p'{db_pass}' --port={db_port} {db_name} < {sql_file} 2>&1"
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        cmd = f"mysql -u {db_user} -p'{db_pass}' --port={db_port} {db_name} < {sql_file}"
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=60)
         if result.returncode == 0:
-            log_info(f"✓ SQL injected")
+            log_msg(f"[SUCCESS] ✓ SQL injected successfully")
             return True
         else:
-            log_error(f"SQL error: {result.stderr}")
+            log_msg(f"[WARNING] SQL warnings: {result.stderr}")
             return True
     except Exception as e:
-        log_error(f"SQL failed: {e}")
+        log_msg(f"[ERROR] SQL failed: {e}")
         return False
 
 def waste_time(seconds):
-    log_info(f"Waiting {seconds}s...")
+    log_msg(f"[INFO] Waiting {seconds}s (GitHub rate limiting)...")
     time.sleep(seconds)
 
-recipe_file = "${recipe_file}"
-base_dir = "${deploy_path}"
-db_name = "${DB_NAME}"
-db_user = "${DB_USER}"
-db_pass = "${DB_PASSWORD}"
-db_port = "${DB_PORT}"
+# Main execution
+if len(sys.argv) < 7:
+    print("Usage: script.py <log_file> <recipe_file> <base_dir> <db_name> <db_user> <db_pass> <db_port>")
+    sys.exit(1)
+
+recipe_file = sys.argv[2]
+base_dir = sys.argv[3]
+db_name = sys.argv[4]
+db_user = sys.argv[5]
+db_pass = sys.argv[6]
+db_port = sys.argv[7]
+
+log_msg(f"[START] Recipe execution started")
+log_msg(f"[INFO] Recipe file: {recipe_file}")
+log_msg(f"[INFO] Base directory: {base_dir}")
+log_msg(f"[INFO] Database: {db_name}@localhost:{db_port}")
 
 os.chdir(base_dir)
 
-with open(recipe_file, 'r') as f:
-    recipe = yaml.safe_load(f)
+try:
+    with open(recipe_file, 'r') as f:
+        recipe = yaml.safe_load(f)
+except Exception as e:
+    log_msg(f"[ERROR] Failed to load recipe: {e}")
+    sys.exit(1)
 
 tasks = recipe.get('tasks', [])
 total = len(tasks)
-log_info(f"Executing {total} tasks")
+log_msg(f"[INFO] Total tasks: {total}")
+
+success_count = 0
+fail_count = 0
 
 for i, task in enumerate(tasks, 1):
     action = task.get('action')
     print(f"\n[{i}/{total}] {action}", flush=True)
+    log_msg(f"[TASK {i}/{total}] Action: {action}")
     
     try:
+        result = False
         if action == 'download_github':
-            download_github(task.get('src'), task.get('dest'), task.get('ref', 'main'), task.get('subpath', ''))
+            result = download_github(task.get('src'), task.get('dest'), task.get('ref', 'main'), task.get('subpath', ''))
         elif action == 'download_file':
-            download_file(task.get('url'), task.get('path'))
+            result = download_file(task.get('url'), task.get('path'))
         elif action == 'unzip':
-            unzip_file(task.get('src'), task.get('dest'))
+            result = unzip_file(task.get('src'), task.get('dest'))
         elif action == 'move_path':
-            move_path(task.get('src'), task.get('dest'))
+            result = move_path(task.get('src'), task.get('dest'))
         elif action == 'remove_path':
-            remove_path(task.get('path'))
+            result = remove_path(task.get('path'))
         elif action == 'query_database':
-            query_database(task.get('file'), db_name, db_user, db_pass, db_port)
+            result = query_database(task.get('file'), db_name, db_user, db_pass, db_port)
         elif action == 'connect_database':
-            log_info("DB connected")
+            log_msg("[INFO] Database connection verified")
+            result = True
         elif action == 'waste_time':
             waste_time(task.get('seconds', 0))
+            result = True
+        else:
+            log_msg(f"[WARNING] Unknown action: {action}")
+            result = True
+        
+        if result:
+            success_count += 1
+        else:
+            fail_count += 1
+            
     except Exception as e:
-        log_error(f"Error: {e}")
+        log_msg(f"[ERROR] Task exception: {e}")
+        fail_count += 1
 
-print("\n✓ Recipe complete", flush=True)
+log_msg(f"[COMPLETE] Recipe execution finished")
+log_msg(f"[STATS] Success: {success_count}, Failed: {fail_count}, Total: {total}")
+
+if fail_count > total * 0.3:  # More than 30% failed
+    log_msg("[ERROR] Too many failures!")
+    sys.exit(1)
+
+sys.exit(0)
 PYTHON_SCRIPT
 
-    if [[ $? -eq 0 ]]; then
-        print_message "$GREEN" "✅ Recipe executed"
-        local table_count=$(count_database_tables)
-        print_message "$CYAN" "📊 Tables: ${table_count}"
-        verify_rsg_tables
+    # Execute Python script
+    print_message "$CYAN" "   Starting recipe execution..."
+    
+    if [[ "$VERBOSE" == true ]]; then
+        python3 /tmp/recipe_executor.py "${RECIPE_LOG}" "${recipe_file}" "${deploy_path}" "${DB_NAME}" "${DB_USER}" "${DB_PASSWORD}" "${DB_PORT}" 2>&1 | tee -a "${RECIPE_LOG}"
+        local exit_code=${PIPESTATUS[0]}
+    else
+        python3 /tmp/recipe_executor.py "${RECIPE_LOG}" "${recipe_file}" "${deploy_path}" "${DB_NAME}" "${DB_USER}" "${DB_PASSWORD}" "${DB_PORT}" >> "${RECIPE_LOG}" 2>&1
+        local exit_code=$?
+    fi
+    
+    rm -f /tmp/recipe_executor.py
+    
+    echo ""
+    if [[ $exit_code -eq 0 ]]; then
+        print_message "$GREEN" "✅ Recipe executed successfully"
+        
+        # Verify critical resources
+        print_message "$CYAN" "   Verifying installation..."
+        local missing=()
+        [[ ! -d "${deploy_path}/resources/oxmysql" ]] && missing+=("oxmysql")
+        [[ ! -d "${deploy_path}/resources/ox_lib" ]] && missing+=("ox_lib")
+        [[ ! -d "${deploy_path}/resources/ox_target" ]] && missing+=("ox_target")
+        [[ ! -d "${deploy_path}/resources/[framework]/rsg-core" ]] && missing+=("rsg-core")
+        [[ ! -f "${deploy_path}/server.cfg" ]] && missing+=("server.cfg")
+        
+        if [[ ${#missing[@]} -gt 0 ]]; then
+            print_message "$RED" "❌ Missing critical resources: ${missing[*]}"
+            print_message "$YELLOW" "Check recipe log: ${RECIPE_LOG}"
+            show_last_error
+            return 1
+        fi
+        
+        print_message "$GREEN" "   ✓ All critical resources verified"
         return 0
     else
         print_message "$RED" "❌ Recipe execution failed"
+        print_message "$YELLOW" "Check recipe log: ${RECIPE_LOG}"
         show_last_error
         return 1
     fi
@@ -700,75 +687,75 @@ configure_server_cfg() {
     
     local server_cfg="${INSTALL_DIR}/txData/server.cfg"
     
-    if [[ -f "$server_cfg" ]]; then
-        sed -i "s/{{svLicense}}/${CFX_LICENSE}/g" "$server_cfg"
-        sed -i "s/{{serverEndpoints}}/endpoint_add_tcp \"0.0.0.0:${SERVER_PORT}\"\nendpoint_add_udp \"0.0.0.0:${SERVER_PORT}\"/g" "$server_cfg"
-        sed -i "s/{{maxClients}}/${MAX_CLIENTS}/g" "$server_cfg"
-        sed -i "s|{{dbConnectionString}}|mysql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}?charset=utf8mb4|g" "$server_cfg"
-        
-        if grep -q "sv_hostname" "$server_cfg"; then
-            sed -i "s/sv_hostname .*/sv_hostname \"${SERVER_NAME}\"/g" "$server_cfg"
-        else
-            echo "sv_hostname \"${SERVER_NAME}\"" >> "$server_cfg"
-        fi
-        
-        if [[ ! -z "$STEAM_HEX" ]]; then
-            if ! grep -q "add_principal identifier.steam:${STEAM_HEX}" "$server_cfg"; then
-                cat >> "$server_cfg" <<EOF
+    if [[ ! -f "$server_cfg" ]]; then
+        print_message "$RED" "❌ server.cfg not found! Recipe may have failed."
+        print_message "$YELLOW" "Expected location: $server_cfg"
+        return 1
+    fi
+    
+    # Replace placeholders
+    sed -i "s/{{svLicense}}/${CFX_LICENSE}/g" "$server_cfg"
+    sed -i "s/{{serverEndpoints}}/endpoint_add_tcp \"0.0.0.0:${SERVER_PORT}\"\nendpoint_add_udp \"0.0.0.0:${SERVER_PORT}\"/g" "$server_cfg"
+    sed -i "s/{{maxClients}}/${MAX_CLIENTS}/g" "$server_cfg"
+    sed -i "s|{{dbConnectionString}}|mysql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}?charset=utf8mb4|g" "$server_cfg"
+    
+    # Set hostname
+    if grep -q "sv_hostname" "$server_cfg"; then
+        sed -i "s/sv_hostname .*/sv_hostname \"${SERVER_NAME}\"/g" "$server_cfg"
+    else
+        echo "sv_hostname \"${SERVER_NAME}\"" >> "$server_cfg"
+    fi
+    
+    # Add Steam HEX if provided
+    if [[ ! -z "$STEAM_HEX" ]]; then
+        if ! grep -q "add_principal identifier.steam:${STEAM_HEX}" "$server_cfg"; then
+            cat >> "$server_cfg" <<EOF
 
 # Admin identifiers
 add_ace group.admin command allow
 add_ace group.admin command.quit deny
 add_principal identifier.steam:${STEAM_HEX} group.admin
 EOF
-            fi
-        else
-            if ! grep -q "add_principal identifier" "$server_cfg"; then
-                cat >> "$server_cfg" <<EOF
+        fi
+    else
+        if ! grep -q "add_principal identifier" "$server_cfg"; then
+            cat >> "$server_cfg" <<EOF
 
 # Admin identifiers (add your Steam/Discord IDs)
 # add_principal identifier.steam:YOUR_STEAM_HEX group.admin
 # add_principal identifier.discord:YOUR_DISCORD_ID group.admin
 EOF
-            fi
         fi
-        
-        print_message "$GREEN" "✅ server.cfg configured"
-    else
-        print_message "$RED" "❌ server.cfg not found"
-        show_last_error
-        return 1
     fi
+    
+    print_message "$GREEN" "✅ server.cfg configured"
+    return 0
 }
 
 # ============================================
 # MANAGEMENT SCRIPTS
 # ============================================
 create_management_scripts() {
-    print_message "$BLUE" "📝 Creating scripts..."
+    print_message "$BLUE" "📝 Creating management scripts..."
     
     cat > "${INSTALL_DIR}/start.sh" <<'EOF'
 #!/bin/bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCREEN_NAME="$(hostname)_redm"
-
 cd "${SCRIPT_DIR}/server"
-
 if screen -list | grep -q "$SCREEN_NAME"; then
     echo "✅ Server running: $SCREEN_NAME"
     echo "Use ./attach.sh to connect"
     exit 1
 fi
-
 echo "🚀 Starting server: $SCREEN_NAME"
 screen -dmS "$SCREEN_NAME" bash -c "./run.sh +exec ${SCRIPT_DIR}/txData/server.cfg"
 sleep 2
-
 if screen -list | grep -q "$SCREEN_NAME"; then
-    echo "✅ Started"
+    echo "✅ Started successfully"
     echo "Console: screen -r $SCREEN_NAME"
 else
-    echo "❌ Failed"
+    echo "❌ Failed to start"
     exit 1
 fi
 EOF
@@ -778,9 +765,9 @@ EOF
 SCREEN_NAME="$(hostname)_redm"
 if screen -list | grep -q "$SCREEN_NAME"; then
     screen -S "$SCREEN_NAME" -X quit
-    echo "✅ Stopped"
+    echo "✅ Server stopped"
 else
-    echo "⚠️  Not running"
+    echo "⚠️  Server not running"
 fi
 EOF
 
@@ -796,12 +783,12 @@ EOF
 #!/bin/bash
 SCREEN_NAME="$(hostname)_redm"
 if screen -list | grep -q "$SCREEN_NAME"; then
-    echo "📺 Console: $SCREEN_NAME"
-    echo "Detach: CTRL+A then D"
+    echo "📺 Attaching to console: $SCREEN_NAME"
+    echo "⚠️  Detach: CTRL+A then D"
     sleep 2
     screen -r "$SCREEN_NAME"
 else
-    echo "❌ Not running"
+    echo "❌ Server not running"
 fi
 EOF
 
@@ -809,52 +796,39 @@ EOF
 #!/bin/bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ARTIFACT_URL="https://runtime.fivem.net/artifacts/fivem/build_proot_linux/master/"
-
 echo "🔍 Checking for updates..."
-
 HTML=$(curl -s $ARTIFACT_URL)
 LINKS=$(echo "$HTML" | grep -oP 'href="\./\d{4,}[^"]+fx\.tar\.xz"' | sed 's/href="\.\/\([^"]*\)"/\1/')
-
-if [ -z "$LINKS" ]; then
-    echo "❌ No builds found"
-    exit 1
-fi
-
+[ -z "$LINKS" ] && { echo "❌ No builds found"; exit 1; }
 LATEST=$(echo "$LINKS" | grep -oP '^\d{4,}' | sort -nr | head -n 1)
 FILE=$(echo "$LINKS" | grep "^$LATEST")
 URL="${ARTIFACT_URL}${FILE}"
-
-echo "📦 Latest: $LATEST"
+echo "📦 Latest build: $LATEST"
 echo -n "Install? [y/N]: "
 read confirm
-
 if [[ $confirm == [Yy] ]]; then
     "${SCRIPT_DIR}/stop.sh"
     sleep 2
-    
     cd "${SCRIPT_DIR}/server"
     rm -rf alpine.backup
     mv alpine alpine.backup 2>/dev/null || true
-    
     echo "📥 Downloading..."
     wget -q --show-progress "$URL" -O fx.tar.xz
-    tar -xf fx.tar.xz
-    rm fx.tar.xz
-    
+    tar -xf fx.tar.xz && rm fx.tar.xz
     echo "✅ Updated to $LATEST"
     "${SCRIPT_DIR}/start.sh"
 fi
 EOF
 
     chmod +x "${INSTALL_DIR}"/{start,stop,restart,attach,update}.sh
-    print_message "$GREEN" "✅ Scripts created"
+    print_message "$GREEN" "✅ Management scripts created"
 }
 
 # ============================================
 # SYSTEMD SERVICE
 # ============================================
 create_systemd_service() {
-    print_message "$BLUE" "🔧 Creating service..."
+    print_message "$BLUE" "🔧 Creating systemd service..."
     
     cat > /etc/systemd/system/redm-rsg.service <<EOF
 [Unit]
@@ -875,21 +849,18 @@ WantedBy=multi-user.target
 EOF
 
     systemctl daemon-reload
-    print_message "$GREEN" "✅ Service created"
+    print_message "$GREEN" "✅ Systemd service created"
     
-    echo -ne "${YELLOW}Enable auto-start? [y/N]: ${NC}"
+    echo -ne "${YELLOW}Enable auto-start on boot? [y/N]: ${NC}"
     read auto_start
-    if [[ "$auto_start" =~ ^[Yy]$ ]]; then
-        systemctl enable redm-rsg.service
-        print_message "$GREEN" "✅ Auto-start enabled"
-    fi
+    [[ "$auto_start" =~ ^[Yy]$ ]] && systemctl enable redm-rsg.service && print_message "$GREEN" "✅ Auto-start enabled"
 }
 
 # ============================================
 # FIREWALL
 # ============================================
 configure_firewall() {
-    print_message "$BLUE" "🔥 Firewall..."
+    print_message "$BLUE" "🔥 Configuring firewall..."
     
     if command -v ufw &> /dev/null; then
         ufw allow ${SERVER_PORT}/tcp >> "${LOG_FILE}" 2>&1
@@ -903,8 +874,35 @@ configure_firewall() {
         firewall-cmd --reload >> "${LOG_FILE}" 2>&1
         print_message "$GREEN" "✅ firewalld configured"
     else
-        print_message "$YELLOW" "⚠️  Manual: ${SERVER_PORT}, ${TXADMIN_PORT}"
+        print_message "$YELLOW" "⚠️  No firewall detected. Manual config needed: ${SERVER_PORT}, ${TXADMIN_PORT}"
     fi
+}
+
+# ============================================
+# VERIFICATION
+# ============================================
+verify_rsg_tables() {
+    print_message "$CYAN" "🔍 Verifying database tables..."
+    
+    local expected_tables=("players" "characters" "player_horses" "bank_accounts")
+    local missing=()
+    
+    for table in "${expected_tables[@]}"; do
+        local exists=$(mysql -u root -p"${DB_PASSWORD}" --port=${DB_PORT} -D "${DB_NAME}" -sse "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '${DB_NAME}' AND table_name = '${table}';" 2>/dev/null)
+        [[ "$exists" == "0" ]] && missing+=("$table")
+    done
+    
+    if [[ ${#missing[@]} -eq 0 ]]; then
+        print_message "$GREEN" "✅ All RSG tables present"
+        return 0
+    else
+        print_message "$YELLOW" "⚠️  Missing tables: ${missing[*]}"
+        return 1
+    fi
+}
+
+count_database_tables() {
+    mysql -u root -p"${DB_PASSWORD}" --port=${DB_PORT} -D "${DB_NAME}" -sse "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '${DB_NAME}';" 2>/dev/null
 }
 
 # ============================================
@@ -913,6 +911,7 @@ configure_firewall() {
 display_summary() {
     local server_ip=$(hostname -I | awk '{print $1}')
     local table_count=$(count_database_tables)
+    local resource_count=$(find ${INSTALL_DIR}/txData/resources -type d -name 'rsg-*' | wc -l)
     
     clear
     print_message "$GREEN" "╔════════════════════════════════════════════╗"
@@ -923,18 +922,23 @@ display_summary() {
     echo -e "${BOLD}Build:${NC} $LATEST_ARTIFACT"
     echo -e "${BOLD}Path:${NC} $INSTALL_DIR"
     echo -e "${BOLD}Database:${NC} $DB_NAME ($table_count tables)"
+    echo -e "${BOLD}Resources:${NC} $resource_count RSG resources installed"
     echo ""
     print_message "$CYAN" "Commands:"
-    echo "  ${INSTALL_DIR}/start.sh"
-    echo "  ${INSTALL_DIR}/stop.sh"
-    echo "  ${INSTALL_DIR}/attach.sh"
-    echo "  ${INSTALL_DIR}/update.sh"
+    echo "  ${INSTALL_DIR}/start.sh      - Start server"
+    echo "  ${INSTALL_DIR}/stop.sh       - Stop server"
+    echo "  ${INSTALL_DIR}/attach.sh     - Access console"
+    echo "  ${INSTALL_DIR}/update.sh     - Update RedM build"
     echo ""
     print_message "$CYAN" "Access:"
-    echo "  F8: connect $server_ip:$SERVER_PORT"
+    echo "  F8 Console: connect $server_ip:$SERVER_PORT"
     echo "  txAdmin: http://$server_ip:$TXADMIN_PORT"
     echo ""
-    print_message "$GREEN" "🚀 Start now: cd ${INSTALL_DIR} && ./start.sh"
+    print_message "$CYAN" "Logs:"
+    echo "  Install log: ${LOG_FILE}"
+    echo "  Recipe log:  ${RECIPE_LOG}"
+    echo ""
+    print_message "$GREEN" "🚀 Start server: cd ${INSTALL_DIR} && ./start.sh"
     echo ""
 }
 
@@ -947,10 +951,10 @@ main() {
             -v|--verbose) VERBOSE=true; shift ;;
             -h|--help)
                 echo "Usage: $0 [OPTIONS]"
-                echo "  -v, --verbose    Verbose mode"
-                echo "  -h, --help       Help"
+                echo "  -v, --verbose    Verbose output"
+                echo "  -h, --help       Show this help"
                 exit 0 ;;
-            *) echo "Unknown: $1"; exit 1 ;;
+            *) echo "Unknown option: $1"; exit 1 ;;
         esac
     done
     
@@ -958,8 +962,8 @@ main() {
     echo -e "${CYAN}"
     cat << "EOF"
 ╔═══════════════════════════════════════════════════════╗
-║       RSG RedM Framework Installer v2.6               ║
-║       Fixed Python boolean & recipe execution         ║
+║       RSG RedM Framework Installer v3.0 FINAL         ║
+║       Complete rewrite with robust logging            ║
 ╚═══════════════════════════════════════════════════════╝
 EOF
     echo -e "${NC}"
@@ -968,43 +972,45 @@ EOF
     check_root
     check_dependencies
     setup_logging
-    
-    # Get ALL configuration FIRST
     get_user_input
     
-    # Then proceed with installation
-    print_message "$CYAN" "\nStep 1/10: Installing dependencies..."
+    print_message "$CYAN" "\n━━━ Installation Starting ━━━\n"
+    
+    print_message "$CYAN" "Step 1/10: Installing dependencies..."
     install_dependencies
     
-    print_message "$CYAN" "Step 2/10: Finding RedM build..."
+    print_message "$CYAN" "Step 2/10: Finding latest RedM build..."
     check_new_artifact || exit 1
     
     print_message "$CYAN" "Step 3/10: Configuring MariaDB..."
     setup_mariadb
     validate_sql_connection || exit 1
     
-    print_message "$CYAN" "Step 4/10: Downloading RedM..."
+    print_message "$CYAN" "Step 4/10: Downloading RedM artifacts..."
     download_artifact "${INSTALL_DIR}/server" || exit 1
     
-    print_message "$CYAN" "Step 5/10: Downloading recipe..."
+    print_message "$CYAN" "Step 5/10: Downloading RSG recipe..."
     download_recipe || exit 1
     
-    print_message "$CYAN" "Step 6/10: Executing recipe..."
+    print_message "$CYAN" "Step 6/10: Executing RSG recipe (10-15 min)..."
     execute_recipe || exit 1
     
     print_message "$CYAN" "Step 7/10: Configuring server..."
     configure_server_cfg || exit 1
     
-    print_message "$CYAN" "Step 8/10: Creating scripts..."
+    print_message "$CYAN" "Step 8/10: Creating management scripts..."
     create_management_scripts
     
-    print_message "$CYAN" "Step 9/10: Creating service..."
+    print_message "$CYAN" "Step 9/10: Setting up systemd service..."
     create_systemd_service
     
-    print_message "$CYAN" "Step 10/10: Firewall..."
+    print_message "$CYAN" "Step 10/10: Configuring firewall..."
     configure_firewall
     
-    log "INFO" "Installation complete"
+    print_message "$CYAN" "\n━━━ Final Verification ━━━\n"
+    verify_rsg_tables
+    
+    log "INFO" "Installation completed successfully"
     display_summary
 }
 
