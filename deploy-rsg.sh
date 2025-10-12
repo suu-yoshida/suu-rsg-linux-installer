@@ -24,7 +24,7 @@ LOG_FILE="${LOG_DIR}/redm_rsg_install_${TIMESTAMP}.log"
 LATEST_LOG_SYMLINK="${LOG_DIR}/latest.log"
 RECIPE_LOG="${LOG_DIR}/recipe_${TIMESTAMP}.log"
 
-VERBOSE=false
+VERBOSE=true
 
 # Server Configuration
 INSTALL_DIR=""
