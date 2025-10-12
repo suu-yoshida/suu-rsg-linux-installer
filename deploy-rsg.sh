@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# RSG RedM Framework - Installation Script v3.0 FINAL
-# Complete rewrite with robust error handling
+# RSG RedM Framework - Installation Script v3.2 FINAL
+# Complete with auto-fix for cfx-server-data and dynamic path verification
 
 # ============================================
 # COLORS
@@ -24,7 +24,6 @@ LOG_FILE="${LOG_DIR}/redm_rsg_install_${TIMESTAMP}.log"
 LATEST_LOG_SYMLINK="${LOG_DIR}/latest.log"
 RECIPE_LOG="${LOG_DIR}/recipe_${TIMESTAMP}.log"
 
-# Verbose mode
 VERBOSE=false
 
 # Server Configuration
@@ -423,7 +422,7 @@ download_recipe() {
 }
 
 # ============================================
-# RECIPE EXECUTION (COMPLETE REWRITE)
+# RECIPE EXECUTION WITH AUTO-FIX
 # ============================================
 execute_recipe() {
     print_message "$BLUE" "⚙️  Executing RSG recipe..."
@@ -437,7 +436,7 @@ execute_recipe() {
     mkdir -p "$deploy_path"
     cd "$deploy_path"
     
-    # Create Python script file
+    # Create Python script with auto-retry for main/master branches
     cat > /tmp/recipe_executor.py <<'PYTHON_SCRIPT'
 import yaml
 import os
@@ -462,9 +461,17 @@ def download_github(src, dest, ref="main", subpath=""):
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         cmd = ["git", "clone", "--quiet", "--depth", "1", "--branch", ref, src, dest]
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        
+        # Auto-retry with master if main fails
+        if result.returncode != 0 and ref == "main":
+            log_msg(f"[WARNING] Branch 'main' not found, trying 'master'...")
+            cmd = ["git", "clone", "--quiet", "--depth", "1", "--branch", "master", src, dest]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        
         if result.returncode != 0:
             log_msg(f"[ERROR] Git clone failed: {result.stderr}")
             return False
+            
         if subpath:
             subpath_full = os.path.join(dest, subpath)
             if os.path.exists(subpath_full):
@@ -629,7 +636,7 @@ for i, task in enumerate(tasks, 1):
 log_msg(f"[COMPLETE] Recipe execution finished")
 log_msg(f"[STATS] Success: {success_count}, Failed: {fail_count}, Total: {total}")
 
-if fail_count > total * 0.3:  # More than 30% failed
+if fail_count > total * 0.3:
     log_msg("[ERROR] Too many failures!")
     sys.exit(1)
 
@@ -653,20 +660,70 @@ PYTHON_SCRIPT
     if [[ $exit_code -eq 0 ]]; then
         print_message "$GREEN" "✅ Recipe executed successfully"
         
-        # Verify critical resources
+        # Verify critical resources dynamically
         print_message "$CYAN" "   Verifying installation..."
+        
+        local critical_resources=(
+            "oxmysql:./resources/[standalone]"
+            "ox_lib:./resources/[standalone]"
+            "ox_target:./resources/[standalone]"
+            "rsg-core:./resources/[framework]"
+            "mapmanager:./resources/[cfx-default]"
+            "spawnmanager:./resources/[cfx-default]"
+        )
+        
         local missing=()
-        [[ ! -d "${deploy_path}/resources/oxmysql" ]] && missing+=("oxmysql")
-        [[ ! -d "${deploy_path}/resources/ox_lib" ]] && missing+=("ox_lib")
-        [[ ! -d "${deploy_path}/resources/ox_target" ]] && missing+=("ox_target")
-        [[ ! -d "${deploy_path}/resources/[framework]/rsg-core" ]] && missing+=("rsg-core")
-        [[ ! -f "${deploy_path}/server.cfg" ]] && missing+=("server.cfg")
+        for resource_info in "${critical_resources[@]}"; do
+            local resource_name="${resource_info%%:*}"
+            local resource_path="${resource_info##*:}"
+            local full_path="${deploy_path}/${resource_path}/${resource_name}"
+            
+            if [[ ! -d "$full_path" ]]; then
+                missing+=("$resource_name")
+                log "ERROR" "Missing: $full_path"
+            else
+                log "DEBUG" "Found: $full_path"
+            fi
+        done
         
         if [[ ${#missing[@]} -gt 0 ]]; then
-            print_message "$RED" "❌ Missing critical resources: ${missing[*]}"
-            print_message "$YELLOW" "Check recipe log: ${RECIPE_LOG}"
-            show_last_error
-            return 1
+            print_message "$YELLOW" "⚠️  Missing resources: ${missing[*]}"
+            print_message "$CYAN" "   Attempting auto-fix for cfx-default resources..."
+            
+            # Auto-fix for cfx-default resources
+            if [[ " ${missing[@]} " =~ " mapmanager " ]] || [[ " ${missing[@]} " =~ " spawnmanager " ]]; then
+                cd "${deploy_path}/resources"
+                
+                print_message "$CYAN" "   Downloading cfx-server-data..."
+                git clone --quiet --depth 1 --branch master https://github.com/citizenfx/cfx-server-data.git temp_cfx >> "${RECIPE_LOG}" 2>&1
+                
+                if [[ -d "temp_cfx" ]]; then
+                    mkdir -p "[cfx-default]"
+                    
+                    # Copy resources with error handling
+                    [[ -d "temp_cfx/resources/mapmanager" ]] && cp -r "temp_cfx/resources/mapmanager" "./[cfx-default]/"
+                    [[ -d "temp_cfx/resources/spawnmanager" ]] && cp -r "temp_cfx/resources/spawnmanager" "./[cfx-default]/"
+                    [[ -d "temp_cfx/resources/[gameplay]/sessionmanager-rdr3" ]] && cp -r "temp_cfx/resources/[gameplay]/sessionmanager-rdr3" "./[cfx-default]/"
+                    
+                    rm -rf temp_cfx
+                    print_message "$GREEN" "   ✓ cfx-default resources added"
+                    
+                    # Re-check
+                    missing=()
+                    for resource_info in "${critical_resources[@]}"; do
+                        local resource_name="${resource_info%%:*}"
+                        local resource_path="${resource_info##*:}"
+                        local full_path="${deploy_path}/${resource_path}/${resource_name}"
+                        [[ ! -d "$full_path" ]] && missing+=("$resource_name")
+                    done
+                fi
+            fi
+            
+            if [[ ${#missing[@]} -gt 0 ]]; then
+                print_message "$RED" "❌ Still missing: ${missing[*]}"
+                print_message "$YELLOW" "Check recipe log: ${RECIPE_LOG}"
+                return 1
+            fi
         fi
         
         print_message "$GREEN" "   ✓ All critical resources verified"
@@ -911,7 +968,7 @@ count_database_tables() {
 display_summary() {
     local server_ip=$(hostname -I | awk '{print $1}')
     local table_count=$(count_database_tables)
-    local resource_count=$(find ${INSTALL_DIR}/txData/resources -type d -name 'rsg-*' | wc -l)
+    local resource_count=$(find ${INSTALL_DIR}/txData/resources -type d -name 'rsg-*' 2>/dev/null | wc -l)
     
     clear
     print_message "$GREEN" "╔════════════════════════════════════════════╗"
@@ -962,8 +1019,8 @@ main() {
     echo -e "${CYAN}"
     cat << "EOF"
 ╔═══════════════════════════════════════════════════════╗
-║       RSG RedM Framework Installer v3.0 FINAL         ║
-║       Complete rewrite with robust logging            ║
+║     RSG RedM Framework Installer v3.2 FINAL           ║
+║     Auto-fix for cfx-server-data & dynamic verify     ║
 ╚═══════════════════════════════════════════════════════╝
 EOF
     echo -e "${NC}"
