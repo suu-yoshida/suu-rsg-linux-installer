@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# RSG RedM Framework - Installation Script v2.4
-# Interactive configuration with fixed input handling
+# RSG RedM Framework - Installation Script v2.6
+# Fixed Python boolean conversion
 
 # ============================================
 # COLORS
@@ -44,6 +44,23 @@ ARTIFACT_PAGE_URL="https://runtime.fivem.net/artifacts/fivem/build_proot_linux/m
 RSG_RECIPE_URL="https://raw.githubusercontent.com/Rexshack-RedM/txAdminRecipe/refs/heads/main/rsgcore.yaml"
 LATEST_ARTIFACT=""
 FULL_ARTIFACT_URL=""
+
+# ============================================
+# CHECK STDIN
+# ============================================
+check_stdin() {
+    if [ ! -t 0 ]; then
+        echo -e "${RED}❌ This script cannot be run via pipe (curl | bash)${NC}"
+        echo ""
+        echo "Please download and run it directly:"
+        echo ""
+        echo "  wget https://your-url.com/rsg-installer.sh"
+        echo "  chmod +x rsg-installer.sh"
+        echo "  sudo ./rsg-installer.sh"
+        echo ""
+        exit 1
+    fi
+}
 
 # ============================================
 # LOGGING FUNCTIONS
@@ -122,163 +139,167 @@ check_dependencies() {
 }
 
 # ============================================
-# USER INPUT WITH SMART DEFAULTS (FIXED)
+# USER INPUT
 # ============================================
 get_user_input() {
     clear
-    print_message "$CYAN" "╔════════════════════════════════════════════════════╗"
-    print_message "$CYAN" "║     RSG RedM Server - Interactive Setup           ║"
-    print_message "$CYAN" "╚════════════════════════════════════════════════════╝"
-    echo
-    print_message "$YELLOW" "Press ENTER to use default values shown in [brackets]"
-    echo
+    echo ""
+    echo -e "${CYAN}╔════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║     RSG RedM Server - Interactive Setup           ║${NC}"
+    echo -e "${CYAN}╚════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "${YELLOW}Press ENTER to use default values shown in [brackets]${NC}"
+    echo ""
     
-    # 1. CFX License Key (REQUIRED - no default)
-    print_message "$BOLD" "━━━ Server Configuration ━━━"
-    while [[ -z "$CFX_LICENSE" ]]; do
-        echo -n -e "${GREEN}CFX License Key ${YELLOW}[required]${NC}: "
-        read -r CFX_LICENSE < /dev/tty
-        if [[ -z "$CFX_LICENSE" ]]; then
-            print_message "$RED" "   ❌ License key is required! Get one from: https://keymaster.fivem.net"
+    # 1. CFX License Key (REQUIRED)
+    echo -e "${BOLD}━━━ Server Configuration ━━━${NC}"
+    while true; do
+        echo -ne "${GREEN}CFX License Key ${YELLOW}[required]${NC}: "
+        read CFX_LICENSE
+        if [[ ! -z "$CFX_LICENSE" ]]; then
+            break
         fi
+        echo -e "${RED}   ❌ License key is required! Get one from: https://keymaster.fivem.net${NC}"
     done
     
-    # 2. Server Name (REQUIRED - no default)
-    while [[ -z "$SERVER_NAME" ]]; do
-        echo -n -e "${GREEN}Server Name ${YELLOW}[required]${NC}: "
-        read -r SERVER_NAME < /dev/tty
-        if [[ -z "$SERVER_NAME" ]]; then
-            print_message "$RED" "   ❌ Server name is required!"
+    # 2. Server Name (REQUIRED)
+    while true; do
+        echo -ne "${GREEN}Server Name ${YELLOW}[required]${NC}: "
+        read SERVER_NAME
+        if [[ ! -z "$SERVER_NAME" ]]; then
+            break
         fi
+        echo -e "${RED}   ❌ Server name is required!${NC}"
     done
     
-    # 3. Max Clients (optional - default 32)
-    echo
-    echo -n -e "${GREEN}Max Players ${CYAN}[${MAX_CLIENTS}]${NC}: "
-    read -r input_max_clients < /dev/tty
+    # 3. Max Clients (optional)
+    echo ""
+    echo -ne "${GREEN}Max Players ${CYAN}[${MAX_CLIENTS}]${NC}: "
+    read input_max_clients
     if [[ ! -z "$input_max_clients" ]]; then
         MAX_CLIENTS=$input_max_clients
     fi
-    print_message "$CYAN" "   → Using: ${MAX_CLIENTS} players"
+    echo -e "${CYAN}   → Using: ${MAX_CLIENTS} players${NC}"
     
-    # 4. Installation Directory (optional - default /home/RedM)
-    echo
+    # 4. Installation Directory (optional)
+    echo ""
     local default_install_dir="/home/RedM"
-    echo -n -e "${GREEN}Install Directory ${CYAN}[${default_install_dir}]${NC}: "
-    read -r INSTALL_DIR < /dev/tty
+    echo -ne "${GREEN}Install Directory ${CYAN}[${default_install_dir}]${NC}: "
+    read INSTALL_DIR
     if [[ -z "$INSTALL_DIR" ]]; then
         INSTALL_DIR=$default_install_dir
     fi
-    print_message "$CYAN" "   → Installing to: ${INSTALL_DIR}"
+    echo -e "${CYAN}   → Installing to: ${INSTALL_DIR}${NC}"
     
     # 5. Database Configuration
-    echo
-    print_message "$BOLD" "━━━ Database Configuration ━━━"
+    echo ""
+    echo -e "${BOLD}━━━ Database Configuration ━━━${NC}"
     
     # Database Name
-    echo -n -e "${GREEN}Database Name ${CYAN}[${DB_NAME}]${NC}: "
-    read -r input_db_name < /dev/tty
+    echo -ne "${GREEN}Database Name ${CYAN}[${DB_NAME}]${NC}: "
+    read input_db_name
     if [[ ! -z "$input_db_name" ]]; then
         DB_NAME=$input_db_name
     fi
-    print_message "$CYAN" "   → Database: ${DB_NAME}"
+    echo -e "${CYAN}   → Database: ${DB_NAME}${NC}"
     
     # Database User
-    echo -n -e "${GREEN}Database User ${CYAN}[${DB_USER}]${NC}: "
-    read -r input_db_user < /dev/tty
+    echo -ne "${GREEN}Database User ${CYAN}[${DB_USER}]${NC}: "
+    read input_db_user
     if [[ ! -z "$input_db_user" ]]; then
         DB_USER=$input_db_user
     fi
-    print_message "$CYAN" "   → User: ${DB_USER}"
+    echo -e "${CYAN}   → User: ${DB_USER}${NC}"
     
-    # Database Password (REQUIRED - no default)
-    while [[ -z "$DB_PASSWORD" ]]; do
-        echo -n -e "${GREEN}Database Password ${YELLOW}[required]${NC}: "
-        read -rs DB_PASSWORD < /dev/tty
-        echo
-        if [[ -z "$DB_PASSWORD" ]]; then
-            print_message "$RED" "   ❌ Database password is required!"
+    # Database Password (REQUIRED)
+    while true; do
+        echo -ne "${GREEN}Database Password ${YELLOW}[required]${NC}: "
+        read -s DB_PASSWORD
+        echo ""
+        if [[ ! -z "$DB_PASSWORD" ]]; then
+            break
         fi
+        echo -e "${RED}   ❌ Database password is required!${NC}"
     done
-    print_message "$CYAN" "   → Password set"
+    echo -e "${CYAN}   → Password set${NC}"
     
     # Database Port
-    echo -n -e "${GREEN}Database Port ${CYAN}[${DB_PORT}]${NC}: "
-    read -r input_db_port < /dev/tty
+    echo -ne "${GREEN}Database Port ${CYAN}[${DB_PORT}]${NC}: "
+    read input_db_port
     if [[ ! -z "$input_db_port" ]]; then
         DB_PORT=$input_db_port
     fi
-    print_message "$CYAN" "   → Port: ${DB_PORT}"
+    echo -e "${CYAN}   → Port: ${DB_PORT}${NC}"
     
     # 6. Network Ports
-    echo
-    print_message "$BOLD" "━━━ Network Ports ━━━"
+    echo ""
+    echo -e "${BOLD}━━━ Network Ports ━━━${NC}"
     
     # Server Port
-    echo -n -e "${GREEN}Server Port ${CYAN}[${SERVER_PORT}]${NC}: "
-    read -r input_server_port < /dev/tty
+    echo -ne "${GREEN}Server Port ${CYAN}[${SERVER_PORT}]${NC}: "
+    read input_server_port
     if [[ ! -z "$input_server_port" ]]; then
         SERVER_PORT=$input_server_port
     fi
-    print_message "$CYAN" "   → Server: ${SERVER_PORT}"
+    echo -e "${CYAN}   → Server: ${SERVER_PORT}${NC}"
     
     # txAdmin Port
-    echo -n -e "${GREEN}txAdmin Port ${CYAN}[${TXADMIN_PORT}]${NC}: "
-    read -r input_txadmin_port < /dev/tty
+    echo -ne "${GREEN}txAdmin Port ${CYAN}[${TXADMIN_PORT}]${NC}: "
+    read input_txadmin_port
     if [[ ! -z "$input_txadmin_port" ]]; then
         TXADMIN_PORT=$input_txadmin_port
     fi
-    print_message "$CYAN" "   → txAdmin: ${TXADMIN_PORT}"
+    echo -e "${CYAN}   → txAdmin: ${TXADMIN_PORT}${NC}"
     
     # 7. Admin Configuration (Optional)
-    echo
-    print_message "$BOLD" "━━━ Admin Configuration (Optional) ━━━"
-    echo -n -e "${GREEN}Your Steam HEX ${CYAN}[optional - skip with ENTER]${NC}: "
-    read -r STEAM_HEX < /dev/tty
+    echo ""
+    echo -e "${BOLD}━━━ Admin Configuration (Optional) ━━━${NC}"
+    echo -ne "${GREEN}Your Steam HEX ${CYAN}[optional - skip with ENTER]${NC}: "
+    read STEAM_HEX
     if [[ ! -z "$STEAM_HEX" ]]; then
-        print_message "$CYAN" "   → Steam HEX: ${STEAM_HEX}"
+        echo -e "${CYAN}   → Steam HEX: ${STEAM_HEX}${NC}"
     else
-        print_message "$YELLOW" "   → No Steam HEX (add manually later)"
+        echo -e "${YELLOW}   → No Steam HEX (add manually later)${NC}"
     fi
     
     # Display summary
-    echo
-    print_message "$GREEN" "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    print_message "$GREEN" "              Configuration Summary"
-    print_message "$GREEN" "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}              Configuration Summary${NC}"
+    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${BOLD}Server:${NC}"
     echo -e "  Name:              ${CYAN}$SERVER_NAME${NC}"
     echo -e "  Max Players:       ${CYAN}$MAX_CLIENTS${NC}"
     echo -e "  Install Path:      ${CYAN}$INSTALL_DIR${NC}"
-    echo
+    echo ""
     echo -e "${BOLD}Database:${NC}"
     echo -e "  Name:              ${CYAN}$DB_NAME${NC}"
     echo -e "  User:              ${CYAN}$DB_USER${NC}"
     echo -e "  Port:              ${CYAN}$DB_PORT${NC}"
-    echo
+    echo ""
     echo -e "${BOLD}Network:${NC}"
     echo -e "  Server Port:       ${CYAN}$SERVER_PORT${NC}"
     echo -e "  txAdmin Port:      ${CYAN}$TXADMIN_PORT${NC}"
-    echo
+    echo ""
     if [[ ! -z "$STEAM_HEX" ]]; then
         echo -e "${BOLD}Admin:${NC}"
         echo -e "  Steam HEX:         ${CYAN}$STEAM_HEX${NC}"
-        echo
+        echo ""
     fi
-    print_message "$GREEN" "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     
     log "INFO" "Configuration: Server=$SERVER_NAME, Install=$INSTALL_DIR, DB=$DB_NAME:$DB_PORT"
     
     # Confirmation
-    echo
-    echo -n -e "${YELLOW}Continue with this configuration? [Y/n]: ${NC}"
-    read -r confirm < /dev/tty
+    echo ""
+    echo -ne "${YELLOW}Continue with this configuration? [Y/n]: ${NC}"
+    read confirm
     if [[ "$confirm" =~ ^[Nn]$ ]]; then
         print_message "$YELLOW" "Installation cancelled by user"
         exit 0
     fi
     
-    echo
+    echo ""
 }
 
 # ============================================
@@ -467,7 +488,7 @@ count_database_tables() {
 }
 
 # ============================================
-# RECIPE PROCESSING
+# RECIPE PROCESSING (FIXED)
 # ============================================
 download_recipe() {
     print_message "$BLUE" "📥 Downloading RSG recipe..."
@@ -501,6 +522,12 @@ execute_recipe() {
     mkdir -p "$deploy_path"
     cd "$deploy_path"
     
+    # Convert bash boolean to Python boolean
+    local PYTHON_VERBOSE="False"
+    if [[ "$VERBOSE" == true ]]; then
+        PYTHON_VERBOSE="True"
+    fi
+    
     python3 - <<PYTHON_SCRIPT
 import yaml
 import os
@@ -511,7 +538,7 @@ import shutil
 import time
 import sys
 
-VERBOSE = ${VERBOSE}
+VERBOSE = ${PYTHON_VERBOSE}
 
 def log_info(msg):
     print(f"[INFO] {msg}", flush=True)
@@ -659,8 +686,9 @@ PYTHON_SCRIPT
         verify_rsg_tables
         return 0
     else
-        print_message "$YELLOW" "⚠️  Recipe completed with warnings"
-        return 0
+        print_message "$RED" "❌ Recipe execution failed"
+        show_last_error
+        return 1
     fi
 }
 
@@ -684,7 +712,6 @@ configure_server_cfg() {
             echo "sv_hostname \"${SERVER_NAME}\"" >> "$server_cfg"
         fi
         
-        # Add Steam HEX if provided
         if [[ ! -z "$STEAM_HEX" ]]; then
             if ! grep -q "add_principal identifier.steam:${STEAM_HEX}" "$server_cfg"; then
                 cat >> "$server_cfg" <<EOF
@@ -709,6 +736,7 @@ EOF
         print_message "$GREEN" "✅ server.cfg configured"
     else
         print_message "$RED" "❌ server.cfg not found"
+        show_last_error
         return 1
     fi
 }
@@ -797,7 +825,8 @@ FILE=$(echo "$LINKS" | grep "^$LATEST")
 URL="${ARTIFACT_URL}${FILE}"
 
 echo "📦 Latest: $LATEST"
-read -p "Install? [y/N]: " confirm < /dev/tty
+echo -n "Install? [y/N]: "
+read confirm
 
 if [[ $confirm == [Yy] ]]; then
     "${SCRIPT_DIR}/stop.sh"
@@ -848,8 +877,8 @@ EOF
     systemctl daemon-reload
     print_message "$GREEN" "✅ Service created"
     
-    echo -n -e "${YELLOW}Enable auto-start? [y/N]: ${NC}"
-    read -r auto_start < /dev/tty
+    echo -ne "${YELLOW}Enable auto-start? [y/N]: ${NC}"
+    read auto_start
     if [[ "$auto_start" =~ ^[Yy]$ ]]; then
         systemctl enable redm-rsg.service
         print_message "$GREEN" "✅ Auto-start enabled"
@@ -889,24 +918,24 @@ display_summary() {
     print_message "$GREEN" "╔════════════════════════════════════════════╗"
     print_message "$GREEN" "║        Installation Complete! 🎉           ║"
     print_message "$GREEN" "╚════════════════════════════════════════════╝"
-    echo
+    echo ""
     echo -e "${BOLD}Server:${NC} $SERVER_NAME"
     echo -e "${BOLD}Build:${NC} $LATEST_ARTIFACT"
     echo -e "${BOLD}Path:${NC} $INSTALL_DIR"
     echo -e "${BOLD}Database:${NC} $DB_NAME ($table_count tables)"
-    echo
+    echo ""
     print_message "$CYAN" "Commands:"
     echo "  ${INSTALL_DIR}/start.sh"
     echo "  ${INSTALL_DIR}/stop.sh"
     echo "  ${INSTALL_DIR}/attach.sh"
     echo "  ${INSTALL_DIR}/update.sh"
-    echo
+    echo ""
     print_message "$CYAN" "Access:"
     echo "  F8: connect $server_ip:$SERVER_PORT"
     echo "  txAdmin: http://$server_ip:$TXADMIN_PORT"
-    echo
+    echo ""
     print_message "$GREEN" "🚀 Start now: cd ${INSTALL_DIR} && ./start.sh"
-    echo
+    echo ""
 }
 
 # ============================================
@@ -929,12 +958,13 @@ main() {
     echo -e "${CYAN}"
     cat << "EOF"
 ╔═══════════════════════════════════════════════════════╗
-║       RSG RedM Framework Installer v2.4               ║
-║       Interactive Setup with Fixed Input              ║
+║       RSG RedM Framework Installer v2.6               ║
+║       Fixed Python boolean & recipe execution         ║
 ╚═══════════════════════════════════════════════════════╝
 EOF
     echo -e "${NC}"
     
+    check_stdin
     check_root
     check_dependencies
     setup_logging
