@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# RSG RedM Framework - Installation Script v4.0 FINAL
-# Added: txAdmin or Standalone choice + OneSync fix + placeholder replacement
+# RSG RedM Framework - Installation Script v4.1 FINAL
+# Fixed: txAdmin on Linux using run.sh with environment variables
 
 # ============================================
 # COLORS
@@ -337,7 +337,7 @@ download_artifact() {
     exec_cmd "tar -xf fx.tar.xz"
     rm -f fx.tar.xz
     [[ -d "alpine/opt/cfx-server/alpine" ]] && rm -rf "alpine/opt/cfx-server/alpine"
-    chmod +x run.sh FXServer 2>/dev/null
+    chmod +x run.sh 2>/dev/null
     
     print_message "$GREEN" "✅ Artifact installed"
     return 0
@@ -781,12 +781,11 @@ create_management_scripts() {
     print_message "$BLUE" "📝 Creating management scripts..."
     
     if [[ "$USE_TXADMIN" == "yes" ]]; then
-        # txAdmin mode
+        # txAdmin mode - CORRECTED for Linux
         cat > "${INSTALL_DIR}/start.sh" <<EOF
 #!/bin/bash
 SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
 SCREEN_NAME="\$(hostname)_redm_txadmin"
-cd "\${SCRIPT_DIR}/server"
 
 if screen -list | grep -q "\$SCREEN_NAME"; then
     echo "✅ txAdmin running: \$SCREEN_NAME"
@@ -795,16 +794,32 @@ if screen -list | grep -q "\$SCREEN_NAME"; then
 fi
 
 echo "🚀 Starting txAdmin..."
-screen -dmS "\$SCREEN_NAME" bash -c "./FXServer +set citizen_dir alpine/opt/cfx-server/citizen/ +set sv_licenseKey ${CFX_LICENSE} +set txAdminPort ${TXADMIN_PORT} +set txDataPath \${SCRIPT_DIR}/txData"
+cd "\${SCRIPT_DIR}/server"
 
-sleep 3
+# Create txData directory
+mkdir -p "\${SCRIPT_DIR}/txData"
+
+# Launch with txAdmin enabled (Linux method using run.sh)
+screen -dmS "\$SCREEN_NAME" bash -c "cd \${SCRIPT_DIR}/server && TXADMIN_ENABLE=1 TXADMIN_PORT=${TXADMIN_PORT} TX_FOLDER=\${SCRIPT_DIR}/txData ./run.sh"
+
+sleep 5
 
 if screen -list | grep -q "\$SCREEN_NAME"; then
     echo "✅ txAdmin started!"
-    echo "Access: http://\$(hostname -I | awk '{print \$1}'):${TXADMIN_PORT}"
-    echo "Console: screen -r \$SCREEN_NAME (CTRL+A then D to detach)"
+    echo ""
+    echo "🌐 Access txAdmin at:"
+    echo "   http://\$(hostname -I | awk '{print \$1}'):${TXADMIN_PORT}"
+    echo ""
+    echo "📺 Console: screen -r \$SCREEN_NAME"
+    echo "⚠️  Detach: CTRL+A then D"
+    echo ""
+    echo "💡 First launch: Setup wizard will guide you"
+    echo "   Select 'Import' and point to: \${SCRIPT_DIR}/txData"
 else
     echo "❌ Failed to start"
+    echo ""
+    echo "Checking for errors..."
+    screen -ls
     exit 1
 fi
 EOF
@@ -904,7 +919,7 @@ if [[ $confirm == [Yy] ]]; then
     echo "📥 Downloading..."
     wget -q --show-progress "$URL" -O fx.tar.xz
     tar -xf fx.tar.xz && rm fx.tar.xz
-    chmod +x run.sh FXServer 2>/dev/null
+    chmod +x run.sh 2>/dev/null
     echo "✅ Updated to $LATEST"
     "${SCRIPT_DIR}/start.sh"
 fi
@@ -1063,8 +1078,8 @@ main() {
     echo -e "${CYAN}"
     cat << "EOF"
 ╔═══════════════════════════════════════════════════════╗
-║     RSG RedM Framework Installer v4.0 FINAL           ║
-║     txAdmin or Standalone + OneSync + Symlink fix    ║
+║     RSG RedM Framework Installer v4.1 FINAL           ║
+║     txAdmin (Linux fix) + Standalone + All fixes     ║
 ╚═══════════════════════════════════════════════════════╝
 EOF
     echo -e "${NC}"
