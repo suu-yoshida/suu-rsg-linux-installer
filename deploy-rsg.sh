@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # RSG RedM Framework - Installation Script v5.0 FINAL
-# + Password confirmation + Real-time recipe output + PIN display + Uninstall script
+# + Password confirmation + Real-time recipe + PIN display + Uninstall
 
 # ============================================
 # COLORS
@@ -26,7 +26,6 @@ RECIPE_LOG="${LOG_DIR}/recipe_${TIMESTAMP}.log"
 
 VERBOSE=false
 
-# Server Configuration
 INSTALL_DIR=""
 CFX_LICENSE=""
 SERVER_NAME=""
@@ -40,15 +39,11 @@ MAX_CLIENTS="32"
 STEAM_HEX=""
 USE_TXADMIN="no"
 
-# URLs
 ARTIFACT_PAGE_URL="https://runtime.fivem.net/artifacts/fivem/build_proot_linux/master/"
 RSG_RECIPE_URL="https://raw.githubusercontent.com/Rexshack-RedM/txAdminRecipe/refs/heads/main/rsgcore.yaml"
 LATEST_ARTIFACT=""
 FULL_ARTIFACT_URL=""
 
-# ============================================
-# CHECK STDIN
-# ============================================
 check_stdin() {
     if [ ! -t 0 ]; then
         echo -e "${RED}❌ This script cannot be run via pipe (curl | bash)${NC}"
@@ -61,17 +56,12 @@ check_stdin() {
     fi
 }
 
-# ============================================
-# LOGGING
-# ============================================
 setup_logging() {
     mkdir -p "${LOG_DIR}"
     touch "${LOG_FILE}"
     touch "${RECIPE_LOG}"
     ln -sf "${LOG_FILE}" "${LATEST_LOG_SYMLINK}"
     log "INFO" "=== RSG RedM Installation Started ==="
-    log "INFO" "Verbose mode: $VERBOSE"
-    log "INFO" "Recipe log: ${RECIPE_LOG}"
 }
 
 log() {
@@ -109,13 +99,8 @@ show_last_error() {
     tail -n 30 "${LOG_FILE}"
     echo -e "${NC}"
     print_message "$YELLOW" "Full log: ${LOG_FILE}"
-    print_message "$YELLOW" "Recipe log: ${RECIPE_LOG}"
-    print_message "$YELLOW" "\nRun with verbose: sudo bash $0 --verbose"
 }
 
-# ============================================
-# VALIDATION
-# ============================================
 check_root() {
     if [[ $EUID -ne 0 ]]; then
         print_message "$RED" "❌ This script must be run as root (sudo)"
@@ -140,9 +125,6 @@ check_dependencies() {
     fi
 }
 
-# ============================================
-# USER INPUT
-# ============================================
 get_user_input() {
     clear
     echo ""
@@ -184,7 +166,7 @@ get_user_input() {
         echo -ne "${GREEN}CFX License Key ${YELLOW}[required]${NC}: "
         read CFX_LICENSE
         [[ ! -z "$CFX_LICENSE" ]] && break
-        echo -e "${RED}   ❌ License key required! Get one from: https://keymaster.fivem.net${NC}"
+        echo -e "${RED}   ❌ License key required!${NC}"
     done
     
     while true; do
@@ -220,7 +202,6 @@ get_user_input() {
     [[ ! -z "$input_db_user" ]] && DB_USER=$input_db_user
     echo -e "${CYAN}   → User: ${DB_USER}${NC}"
     
-    # PASSWORD CONFIRMATION
     while true; do
         echo -ne "${GREEN}Database Password ${YELLOW}[required]${NC}: "
         read -s DB_PASSWORD
@@ -266,12 +247,12 @@ get_user_input() {
     
     echo ""
     echo -e "${BOLD}━━━ Admin Configuration (Optional) ━━━${NC}"
-    echo -ne "${GREEN}Your Steam HEX ${CYAN}[optional - skip with ENTER]${NC}: "
+    echo -ne "${GREEN}Your Steam HEX ${CYAN}[optional]${NC}: "
     read STEAM_HEX
     if [[ ! -z "$STEAM_HEX" ]]; then
         echo -e "${CYAN}   → Steam HEX: ${STEAM_HEX}${NC}"
     else
-        echo -e "${YELLOW}   → No Steam HEX (add manually later)${NC}"
+        echo -e "${YELLOW}   → No Steam HEX${NC}"
     fi
     
     echo ""
@@ -302,10 +283,8 @@ get_user_input() {
     [[ ! -z "$STEAM_HEX" ]] && echo -e "${BOLD}Admin:${NC}\n  Steam HEX:         ${CYAN}$STEAM_HEX${NC}\n"
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     
-    log "INFO" "Configuration: Mode=$USE_TXADMIN, Server=$SERVER_NAME, Install=$INSTALL_DIR, DB=$DB_NAME:$DB_PORT"
-    
     echo ""
-    echo -ne "${YELLOW}Continue with this configuration? [Y/n]: ${NC}"
+    echo -ne "${YELLOW}Continue? [Y/n]: ${NC}"
     read confirm
     if [[ "$confirm" =~ ^[Nn]$ ]]; then
         print_message "$YELLOW" "Installation cancelled"
@@ -314,9 +293,6 @@ get_user_input() {
     echo ""
 }
 
-# ============================================
-# ARTIFACT FUNCTIONS
-# ============================================
 check_new_artifact() {
     print_message "$CYAN" "🔍 Searching for latest RedM build..."
     local ARTIFACT_HTML=$(curl -s $ARTIFACT_PAGE_URL)
@@ -330,7 +306,6 @@ check_new_artifact() {
     FULL_ARTIFACT_URL="${ARTIFACT_PAGE_URL}${LATEST_ARTIFACT_FILE}"
     
     print_message "$GREEN" "✅ Latest build: ${LATEST_ARTIFACT}"
-    log "INFO" "Artifact: $FULL_ARTIFACT_URL"
     return 0
 }
 
@@ -358,9 +333,6 @@ download_artifact() {
     return 0
 }
 
-# ============================================
-# DEPENDENCIES
-# ============================================
 install_dependencies() {
     print_message "$BLUE" "📦 Installing dependencies..."
     
@@ -386,9 +358,6 @@ install_dependencies() {
     print_message "$GREEN" "✅ Dependencies installed"
 }
 
-# ============================================
-# DATABASE
-# ============================================
 setup_mariadb() {
     print_message "$BLUE" "🗄️  Configuring MariaDB..."
     
@@ -446,9 +415,6 @@ validate_sql_connection() {
     fi
 }
 
-# ============================================
-# RECIPE DOWNLOAD
-# ============================================
 download_recipe() {
     print_message "$BLUE" "📥 Downloading RSG recipe..."
     
@@ -463,7 +429,6 @@ download_recipe() {
     
     if [[ $? -eq 0 ]] && [[ -f "${recipe_dir}/rsgcore.yaml" ]]; then
         print_message "$GREEN" "✅ Recipe downloaded"
-        log "INFO" "Recipe size: $(wc -l < ${recipe_dir}/rsgcore.yaml) lines"
         return 0
     else
         print_message "$RED" "❌ Recipe download failed"
@@ -472,9 +437,6 @@ download_recipe() {
     fi
 }
 
-# ============================================
-# RECIPE EXECUTION WITH REAL-TIME OUTPUT
-# ============================================
 execute_recipe() {
     print_message "$BLUE" "⚙️  Executing RSG recipe..."
     print_message "$YELLOW" "⏱️  This will take 10-15 minutes - DO NOT interrupt!"
@@ -486,7 +448,6 @@ execute_recipe() {
     mkdir -p "$deploy_path"
     cd "$deploy_path"
     
-    # Create Python script with REAL-TIME output
     cat > /tmp/recipe_executor.py <<'PYTHON_SCRIPT'
 import yaml
 import os
@@ -503,7 +464,6 @@ def log_msg(msg):
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
     with open(log_file, 'a') as f:
         f.write(f"{timestamp} {msg}\n")
-    print(msg, flush=True)
 
 def download_github(src, dest, ref="main", subpath=""):
     name = os.path.basename(dest)
@@ -658,10 +618,6 @@ db_pass = sys.argv[6]
 db_port = sys.argv[7]
 
 log_msg(f"[START] Recipe execution started")
-log_msg(f"[INFO] Recipe file: {recipe_file}")
-log_msg(f"[INFO] Base directory: {base_dir}")
-log_msg(f"[INFO] Database: {db_name}@localhost:{db_port}")
-
 os.chdir(base_dir)
 
 try:
@@ -673,8 +629,6 @@ except Exception as e:
 
 tasks = recipe.get('tasks', [])
 total = len(tasks)
-log_msg(f"[INFO] Total tasks: {total}")
-
 print(f"\n📋 Recipe: {total} tasks to execute\n", flush=True)
 
 success_count = 0
@@ -684,7 +638,6 @@ current_category = ""
 for i, task in enumerate(tasks, 1):
     action = task.get('action')
     
-    # Group display by action type
     action_category = action.split('_')[0]
     if action_category != current_category:
         if i > 1:
@@ -743,7 +696,6 @@ if fail_count > total * 0.3:
 sys.exit(0)
 PYTHON_SCRIPT
 
-    # Execute Python script with REAL-TIME output
     print_message "$CYAN" "   Starting recipe execution (real-time output)...\n"
     
     python3 /tmp/recipe_executor.py "${RECIPE_LOG}" "${recipe_file}" "${deploy_path}" "${DB_NAME}" "${DB_USER}" "${DB_PASSWORD}" "${DB_PORT}"
@@ -761,8 +713,536 @@ PYTHON_SCRIPT
         return 0
     else
         print_message "$RED" "❌ Recipe execution failed"
-        print_message "$YELLOW" "Check recipe log: ${RECIPE_LOG}"
         show_last_error
         return 1
     fi
 }
+
+configure_server_cfg() {
+    print_message "$BLUE" "⚙️  Configuring server.cfg..."
+    
+    local server_cfg="${INSTALL_DIR}/txData/server.cfg"
+    
+    if [[ ! -f "$server_cfg" ]]; then
+        print_message "$RED" "❌ server.cfg not found!"
+        return 1
+    fi
+    
+    sed -i '1i ## OneSync (REQUIRED for ox_lib)\nset onesync on\nset onesync_enabled 1\n' "$server_cfg"
+    
+    sed -i "s/{{svLicense}}/${CFX_LICENSE}/g" "$server_cfg"
+    sed -i "s/{{serverEndpoints}}/endpoint_add_tcp \"0.0.0.0:${SERVER_PORT}\"\nendpoint_add_udp \"0.0.0.0:${SERVER_PORT}\"/g" "$server_cfg"
+    sed -i "s/{{maxClients}}/${MAX_CLIENTS}/g" "$server_cfg"
+    sed -i "s|{{dbConnectionString}}|mysql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}?charset=utf8mb4|g" "$server_cfg"
+    sed -i "s/{{recipeName}}/RSG Framework/g" "$server_cfg"
+    sed -i "s/{{serverName}}/${SERVER_NAME}/g" "$server_cfg"
+    sed -i "s/{{recipeDescription}}/Red Dead Redemption Roleplay Server/g" "$server_cfg"
+    
+    if grep -q "sv_hostname" "$server_cfg"; then
+        sed -i "s/sv_hostname .*/sv_hostname \"${SERVER_NAME}\"/g" "$server_cfg"
+    else
+        echo "sv_hostname \"${SERVER_NAME}\"" >> "$server_cfg"
+    fi
+    
+    if [[ ! -z "$STEAM_HEX" ]]; then
+        sed -i "s/identifier.license:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/identifier.steam:${STEAM_HEX}/g" "$server_cfg"
+    fi
+    
+    print_message "$GREEN" "✅ server.cfg configured"
+    return 0
+}
+
+create_resource_symlink() {
+    print_message "$BLUE" "🔗 Creating resource symlink..."
+    
+    local server_dir="${INSTALL_DIR}/server"
+    local resources_symlink="${server_dir}/resources"
+    local resources_target="${INSTALL_DIR}/txData/resources"
+    
+    if [[ -L "$resources_symlink" ]]; then
+        rm -f "$resources_symlink"
+    elif [[ -d "$resources_symlink" ]]; then
+        rm -rf "$resources_symlink"
+    fi
+    
+    ln -s "$resources_target" "$resources_symlink"
+    
+    if [[ -L "$resources_symlink" ]]; then
+        print_message "$GREEN" "✅ Resource symlink created"
+        return 0
+    else
+        print_message "$RED" "❌ Failed to create symlink"
+        return 1
+    fi
+}
+
+create_uninstall_script() {
+    print_message "$BLUE" "📝 Creating uninstall script..."
+    
+    cat > "${INSTALL_DIR}/uninstall.sh" <<EOF
+#!/bin/bash
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;96m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+clear
+echo -e "\${RED}"
+cat << 'BANNER'
+╔═══════════════════════════════════════════════════════╗
+║     ⚠️  RSG RedM Server - UNINSTALLER  ⚠️              ║
+║     This will PERMANENTLY DELETE everything!          ║
+╚═══════════════════════════════════════════════════════╝
+BANNER
+echo -e "\${NC}"
+
+echo -e "\${YELLOW}This will remove:\${NC}"
+echo "  • Server files: ${INSTALL_DIR}"
+echo "  • Database: ${DB_NAME}"
+echo "  • Database user: ${DB_USER}"
+echo "  • Systemd service"
+echo "  • Firewall rules"
+echo "  • Logs"
+echo ""
+echo -e "\${RED}\${BOLD}⚠️  THIS CANNOT BE UNDONE! ⚠️\${NC}"
+echo ""
+echo -ne "\${YELLOW}Type 'DELETE' to confirm: \${NC}"
+read confirmation
+
+if [[ "\$confirmation" != "DELETE" ]]; then
+    echo -e "\${GREEN}Cancelled.\${NC}"
+    exit 0
+fi
+
+echo ""
+echo -e "\${RED}━━━ Uninstalling ━━━\${NC}"
+echo ""
+
+echo -e "\${CYAN}[1/8] Stopping server...\${NC}"
+screen -ls | grep "_redm" | cut -d. -f1 | awk '{print \$1}' | xargs -I {} screen -S {} -X quit 2>/dev/null
+echo "  ✓ Done"
+
+echo -e "\${CYAN}[2/8] Removing systemd service...\${NC}"
+systemctl stop redm-rsg.service 2>/dev/null
+systemctl disable redm-rsg.service 2>/dev/null
+rm -f /etc/systemd/system/redm-rsg.service
+systemctl daemon-reload
+echo "  ✓ Done"
+
+echo -e "\${CYAN}[3/8] Removing database...\${NC}"
+mysql -u root -p"${DB_PASSWORD}" --port=${DB_PORT} <<SQL 2>/dev/null
+DROP DATABASE IF EXISTS \\\`${DB_NAME}\\\`;
+DROP USER IF EXISTS '${DB_USER}'@'localhost';
+FLUSH PRIVILEGES;
+SQL
+echo "  ✓ Done"
+
+echo -e "\${CYAN}[4/8] Removing firewall rules...\${NC}"
+ufw delete allow ${SERVER_PORT}/tcp 2>/dev/null
+ufw delete allow ${SERVER_PORT}/udp 2>/dev/null
+ufw delete allow ${TXADMIN_PORT}/tcp 2>/dev/null
+echo "  ✓ Done"
+
+echo -e "\${CYAN}[5/8] Removing server files...\${NC}"
+rm -rf "${INSTALL_DIR}"
+echo "  ✓ Done"
+
+echo -e "\${CYAN}[6/8] Removing logs...\${NC}"
+rm -rf /var/log/redm
+echo "  ✓ Done"
+
+echo -e "\${CYAN}[7/8] Cleaning temp files...\${NC}"
+rm -f /tmp/txadmin_startup_*.log 2>/dev/null
+rm -f /tmp/recipe_executor.py 2>/dev/null
+echo "  ✓ Done"
+
+echo -e "\${CYAN}[8/8] Package cleanup...\${NC}"
+echo -ne "  Remove MariaDB? [y/N]: "
+read remove_mariadb
+if [[ "\$remove_mariadb" =~ ^[Yy]\$ ]]; then
+    apt-get purge -y mariadb-server mariadb-client &>/dev/null
+    apt-get autoremove -y &>/dev/null
+    echo "  ✓ MariaDB removed"
+else
+    echo "  • MariaDB kept"
+fi
+
+echo ""
+echo -e "\${GREEN}╔════════════════════════════════════════════╗\${NC}"
+echo -e "\${GREEN}║     Uninstallation Complete! ✅             ║\${NC}"
+echo -e "\${GREEN}╚════════════════════════════════════════════╝\${NC}"
+echo ""
+EOF
+
+    chmod +x "${INSTALL_DIR}/uninstall.sh"
+    print_message "$GREEN" "✅ Uninstall script created"
+}
+
+create_management_scripts() {
+    print_message "$BLUE" "📝 Creating management scripts..."
+    
+    if [[ "$USE_TXADMIN" == "yes" ]]; then
+        cat > "${INSTALL_DIR}/start.sh" <<EOF
+#!/bin/bash
+SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+SCREEN_NAME="\$(hostname)_redm_txadmin"
+
+if screen -list | grep -q "\$SCREEN_NAME"; then
+    echo "✅ txAdmin running: \$SCREEN_NAME"
+    echo "Access: http://\$(hostname -I | awk '{print \$1}'):${TXADMIN_PORT}"
+    exit 0
+fi
+
+echo "🚀 Starting txAdmin..."
+cd "\${SCRIPT_DIR}/server"
+mkdir -p "\${SCRIPT_DIR}/txData"
+
+TEMP_LOG="/tmp/txadmin_startup_\$\$.log"
+
+screen -dmS "\$SCREEN_NAME" bash -c "cd \${SCRIPT_DIR}/server && TXADMIN_ENABLE=1 TXADMIN_PORT=${TXADMIN_PORT} TX_FOLDER=\${SCRIPT_DIR}/txData ./run.sh 2>&1 | tee \$TEMP_LOG"
+
+echo "⏳ Waiting for txAdmin to start..."
+sleep 3
+
+for i in {1..30}; do
+    if screen -list | grep -q "\$SCREEN_NAME"; then
+        if grep -q "TX_PIN:" "\$TEMP_LOG" 2>/dev/null; then
+            PIN=\$(grep "TX_PIN:" "\$TEMP_LOG" | tail -n 1 | grep -oP 'TX_PIN:\s*\K\w+')
+            if [[ ! -z "\$PIN" ]]; then
+                echo ""
+                echo "✅ txAdmin started!"
+                echo ""
+                echo "╔═══════════════════════════════════════╗"
+                echo "║          🔐 TXADMIN PIN CODE          ║"
+                echo "╠═══════════════════════════════════════╣"
+                echo "║                                       ║"
+                echo "║            📌  \$PIN                ║"
+                echo "║                                       ║"
+                echo "╚═══════════════════════════════════════╝"
+                echo ""
+                echo "🌐 Access: http://\$(hostname -I | awk '{print \$1}'):${TXADMIN_PORT}"
+                echo "📺 Console: screen -r \$SCREEN_NAME (CTRL+A then D to detach)"
+                echo ""
+                rm -f "\$TEMP_LOG"
+                exit 0
+            fi
+        fi
+    fi
+    sleep 1
+done
+
+if screen -list | grep -q "\$SCREEN_NAME"; then
+    echo "✅ txAdmin started!"
+    echo ""
+    echo "⚠️  Could not capture PIN automatically"
+    echo "🌐 Access: http://\$(hostname -I | awk '{print \$1}'):${TXADMIN_PORT}"
+    echo ""
+    echo "To see the PIN:"
+    echo "   screen -r \$SCREEN_NAME"
+else
+    echo "❌ Failed to start"
+fi
+
+rm -f "\$TEMP_LOG"
+EOF
+    else
+        cat > "${INSTALL_DIR}/start.sh" <<'EOF'
+#!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCREEN_NAME="$(hostname)_redm"
+cd "${SCRIPT_DIR}/server"
+
+if screen -list | grep -q "$SCREEN_NAME"; then
+    echo "✅ Server running: $SCREEN_NAME"
+    echo "Use ./attach.sh to connect"
+    exit 0
+fi
+
+echo "🚀 Starting server: $SCREEN_NAME"
+screen -dmS "$SCREEN_NAME" bash -c "./run.sh +exec ${SCRIPT_DIR}/txData/server.cfg"
+
+sleep 2
+
+if screen -list | grep -q "$SCREEN_NAME"; then
+    echo "✅ Started successfully"
+    echo "Console: screen -r $SCREEN_NAME (CTRL+A then D to detach)"
+else
+    echo "❌ Failed to start"
+    exit 1
+fi
+EOF
+    fi
+
+    cat > "${INSTALL_DIR}/stop.sh" <<'EOF'
+#!/bin/bash
+SCREEN_NAME_1="$(hostname)_redm"
+SCREEN_NAME_2="$(hostname)_redm_txadmin"
+
+if screen -list | grep -q "$SCREEN_NAME_1"; then
+    screen -S "$SCREEN_NAME_1" -X quit
+    echo "✅ Server stopped"
+elif screen -list | grep -q "$SCREEN_NAME_2"; then
+    screen -S "$SCREEN_NAME_2" -X quit
+    echo "✅ txAdmin stopped"
+else
+    echo "⚠️  Server not running"
+fi
+EOF
+
+    cat > "${INSTALL_DIR}/restart.sh" <<'EOF'
+#!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+"${SCRIPT_DIR}/stop.sh"
+sleep 3
+"${SCRIPT_DIR}/start.sh"
+EOF
+
+    cat > "${INSTALL_DIR}/attach.sh" <<'EOF'
+#!/bin/bash
+SCREEN_NAME_1="$(hostname)_redm"
+SCREEN_NAME_2="$(hostname)_redm_txadmin"
+
+if screen -list | grep -q "$SCREEN_NAME_1"; then
+    echo "📺 Attaching to console: $SCREEN_NAME_1"
+    echo "⚠️  Detach: CTRL+A then D"
+    sleep 2
+    screen -r "$SCREEN_NAME_1"
+elif screen -list | grep -q "$SCREEN_NAME_2"; then
+    echo "📺 Attaching to console: $SCREEN_NAME_2"
+    echo "⚠️  Detach: CTRL+A then D"
+    sleep 2
+    screen -r "$SCREEN_NAME_2"
+else
+    echo "❌ Server not running"
+fi
+EOF
+
+    cat > "${INSTALL_DIR}/update.sh" <<'EOF'
+#!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ARTIFACT_URL="https://runtime.fivem.net/artifacts/fivem/build_proot_linux/master/"
+echo "🔍 Checking for updates..."
+HTML=$(curl -s $ARTIFACT_URL)
+LINKS=$(echo "$HTML" | grep -oP 'href="\./\d{4,}[^"]+fx\.tar\.xz"' | sed 's/href="\.\/\([^"]*\)"/\1/')
+[ -z "$LINKS" ] && { echo "❌ No builds found"; exit 1; }
+LATEST=$(echo "$LINKS" | grep -oP '^\d{4,}' | sort -nr | head -n 1)
+FILE=$(echo "$LINKS" | grep "^$LATEST")
+URL="${ARTIFACT_URL}${FILE}"
+echo "📦 Latest build: $LATEST"
+echo -n "Install? [y/N]: "
+read confirm
+if [[ $confirm == [Yy] ]]; then
+    "${SCRIPT_DIR}/stop.sh"
+    sleep 2
+    cd "${SCRIPT_DIR}/server"
+    rm -rf alpine.backup
+    mv alpine alpine.backup 2>/dev/null || true
+    echo "📥 Downloading..."
+    wget -q --show-progress "$URL" -O fx.tar.xz
+    tar -xf fx.tar.xz && rm fx.tar.xz
+    chmod +x run.sh 2>/dev/null
+    echo "✅ Updated to $LATEST"
+    "${SCRIPT_DIR}/start.sh"
+fi
+EOF
+
+    chmod +x "${INSTALL_DIR}"/{start,stop,restart,attach,update}.sh
+    print_message "$GREEN" "✅ Management scripts created"
+}
+
+create_systemd_service() {
+    print_message "$BLUE" "🔧 Creating systemd service..."
+    
+    cat > /etc/systemd/system/redm-rsg.service <<EOF
+[Unit]
+Description=RedM RSG Server
+After=network.target mariadb.service
+
+[Service]
+Type=forking
+User=root
+WorkingDirectory=${INSTALL_DIR}/server
+ExecStart=${INSTALL_DIR}/start.sh
+ExecStop=${INSTALL_DIR}/stop.sh
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    print_message "$GREEN" "✅ Systemd service created"
+    
+    echo -ne "${YELLOW}Enable auto-start on boot? [y/N]: ${NC}"
+    read auto_start
+    [[ "$auto_start" =~ ^[Yy]$ ]] && systemctl enable redm-rsg.service && print_message "$GREEN" "✅ Auto-start enabled"
+}
+
+configure_firewall() {
+    print_message "$BLUE" "🔥 Configuring firewall..."
+    
+    if command -v ufw &> /dev/null; then
+        ufw allow ${SERVER_PORT}/tcp >> "${LOG_FILE}" 2>&1
+        ufw allow ${SERVER_PORT}/udp >> "${LOG_FILE}" 2>&1
+        [[ "$USE_TXADMIN" == "yes" ]] && ufw allow ${TXADMIN_PORT}/tcp >> "${LOG_FILE}" 2>&1
+        print_message "$GREEN" "✅ UFW configured"
+    elif command -v firewall-cmd &> /dev/null; then
+        firewall-cmd --permanent --add-port=${SERVER_PORT}/tcp >> "${LOG_FILE}" 2>&1
+        firewall-cmd --permanent --add-port=${SERVER_PORT}/udp >> "${LOG_FILE}" 2>&1
+        [[ "$USE_TXADMIN" == "yes" ]] && firewall-cmd --permanent --add-port=${TXADMIN_PORT}/tcp >> "${LOG_FILE}" 2>&1
+        firewall-cmd --reload >> "${LOG_FILE}" 2>&1
+        print_message "$GREEN" "✅ firewalld configured"
+    else
+        print_message "$YELLOW" "⚠️  No firewall detected"
+    fi
+}
+
+verify_rsg_tables() {
+    print_message "$CYAN" "🔍 Verifying database tables..."
+    
+    local expected_tables=("players" "characters" "player_horses" "bank_accounts")
+    local missing=()
+    
+    for table in "${expected_tables[@]}"; do
+        local exists=$(mysql -u root -p"${DB_PASSWORD}" --port=${DB_PORT} -D "${DB_NAME}" -sse "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '${DB_NAME}' AND table_name = '${table}';" 2>/dev/null)
+        [[ "$exists" == "0" ]] && missing+=("$table")
+    done
+    
+    if [[ ${#missing[@]} -eq 0 ]]; then
+        print_message "$GREEN" "✅ All RSG tables present"
+        return 0
+    else
+        print_message "$YELLOW" "⚠️  Missing tables: ${missing[*]}"
+        return 1
+    fi
+}
+
+count_database_tables() {
+    mysql -u root -p"${DB_PASSWORD}" --port=${DB_PORT} -D "${DB_NAME}" -sse "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '${DB_NAME}';" 2>/dev/null
+}
+
+display_summary() {
+    local server_ip=$(hostname -I | awk '{print $1}')
+    local table_count=$(count_database_tables)
+    local resource_count=$(find ${INSTALL_DIR}/txData/resources -maxdepth 2 -type d -name 'rsg-*' 2>/dev/null | wc -l)
+    
+    clear
+    print_message "$GREEN" "╔════════════════════════════════════════════╗"
+    print_message "$GREEN" "║        Installation Complete! 🎉           ║"
+    print_message "$GREEN" "╚════════════════════════════════════════════╝"
+    echo ""
+    if [[ "$USE_TXADMIN" == "yes" ]]; then
+        echo -e "${BOLD}Mode:${NC} txAdmin (Web Interface)"
+    else
+        echo -e "${BOLD}Mode:${NC} Standalone (Console)"
+    fi
+    echo -e "${BOLD}Server:${NC} $SERVER_NAME"
+    echo -e "${BOLD}Build:${NC} $LATEST_ARTIFACT"
+    echo -e "${BOLD}Path:${NC} $INSTALL_DIR"
+    echo -e "${BOLD}Database:${NC} $DB_NAME ($table_count tables)"
+    echo -e "${BOLD}Resources:${NC} $resource_count RSG resources"
+    echo ""
+    print_message "$CYAN" "Commands:"
+    echo "  ${INSTALL_DIR}/start.sh       - Start server"
+    echo "  ${INSTALL_DIR}/stop.sh        - Stop server"
+    echo "  ${INSTALL_DIR}/restart.sh     - Restart server"
+    echo "  ${INSTALL_DIR}/attach.sh      - Access console"
+    echo "  ${INSTALL_DIR}/update.sh      - Update RedM build"
+    echo "  ${INSTALL_DIR}/uninstall.sh   - ⚠️  Complete uninstall"
+    echo ""
+    print_message "$CYAN" "Access:"
+    if [[ "$USE_TXADMIN" == "yes" ]]; then
+        echo "  txAdmin: http://$server_ip:$TXADMIN_PORT"
+        echo "  Game: connect $server_ip:$SERVER_PORT"
+    else
+        echo "  F8 Console: connect $server_ip:$SERVER_PORT"
+    fi
+    echo ""
+    print_message "$CYAN" "Logs:"
+    echo "  Install: ${LOG_FILE}"
+    echo "  Recipe:  ${RECIPE_LOG}"
+    echo ""
+    print_message "$GREEN" "🚀 Start: cd ${INSTALL_DIR} && ./start.sh"
+    echo ""
+}
+
+main() {
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -v|--verbose) VERBOSE=true; shift ;;
+            -h|--help)
+                echo "Usage: $0 [OPTIONS]"
+                echo "  -v, --verbose    Verbose output"
+                echo "  -h, --help       Show this help"
+                exit 0 ;;
+            *) echo "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+    
+    clear
+    echo -e "${CYAN}"
+    cat << "EOF"
+╔═══════════════════════════════════════════════════════╗
+║     RSG RedM Framework Installer v5.0 FINAL           ║
+║     All features included + Ready to deploy!          ║
+╚═══════════════════════════════════════════════════════╝
+EOF
+    echo -e "${NC}"
+    
+    check_stdin
+    check_root
+    check_dependencies
+    setup_logging
+    get_user_input
+    
+    print_message "$CYAN" "\n━━━ Installation Starting ━━━\n"
+    
+    print_message "$CYAN" "Step 1/12: Installing dependencies..."
+    install_dependencies
+    
+    print_message "$CYAN" "Step 2/12: Finding latest RedM build..."
+    check_new_artifact || exit 1
+    
+    print_message "$CYAN" "Step 3/12: Configuring MariaDB..."
+    setup_mariadb
+    validate_sql_connection || exit 1
+    
+    print_message "$CYAN" "Step 4/12: Downloading RedM artifacts..."
+    download_artifact "${INSTALL_DIR}/server" || exit 1
+    
+    print_message "$CYAN" "Step 5/12: Downloading RSG recipe..."
+    download_recipe || exit 1
+    
+    print_message "$CYAN" "Step 6/12: Executing RSG recipe (10-15 min)..."
+    execute_recipe || exit 1
+    
+    print_message "$CYAN" "Step 7/12: Configuring server..."
+    configure_server_cfg || exit 1
+    
+    print_message "$CYAN" "Step 8/12: Creating resource symlink..."
+    create_resource_symlink || exit 1
+    
+    print_message "$CYAN" "Step 9/12: Creating management scripts..."
+    create_management_scripts
+    
+    print_message "$CYAN" "Step 10/12: Creating uninstall script..."
+    create_uninstall_script
+    
+    print_message "$CYAN" "Step 11/12: Setting up systemd service..."
+    create_systemd_service
+    
+    print_message "$CYAN" "Step 12/12: Configuring firewall..."
+    configure_firewall
+    
+    print_message "$CYAN" "\n━━━ Final Verification ━━━\n"
+    verify_rsg_tables
+    
+    log "INFO" "Installation completed successfully"
+    display_summary
+}
+
+main "$@"
