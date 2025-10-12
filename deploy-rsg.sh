@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# RSG RedM Framework - Installation Script v3.3 FINAL
-# Removed faulty resource verification - recipe success is sufficient
+# RSG RedM Framework - Installation Script v3.4 FINAL
+# Fixed: Resource path resolution with symlink
 
 # ============================================
 # COLORS
@@ -24,7 +24,7 @@ LOG_FILE="${LOG_DIR}/redm_rsg_install_${TIMESTAMP}.log"
 LATEST_LOG_SYMLINK="${LOG_DIR}/latest.log"
 RECIPE_LOG="${LOG_DIR}/recipe_${TIMESTAMP}.log"
 
-VERBOSE=true
+VERBOSE=false
 
 # Server Configuration
 INSTALL_DIR=""
@@ -727,6 +727,38 @@ EOF
 }
 
 # ============================================
+# RESOURCE SYMLINK (FIX)
+# ============================================
+create_resource_symlink() {
+    print_message "$BLUE" "🔗 Creating resource symlink..."
+    
+    local server_dir="${INSTALL_DIR}/server"
+    local resources_symlink="${server_dir}/resources"
+    local resources_target="${INSTALL_DIR}/txData/resources"
+    
+    # Remove existing symlink or directory
+    if [[ -L "$resources_symlink" ]]; then
+        rm -f "$resources_symlink"
+        log "INFO" "Removed existing symlink: $resources_symlink"
+    elif [[ -d "$resources_symlink" ]]; then
+        rm -rf "$resources_symlink"
+        log "INFO" "Removed existing directory: $resources_symlink"
+    fi
+    
+    # Create symlink
+    ln -s "$resources_target" "$resources_symlink"
+    
+    if [[ -L "$resources_symlink" ]]; then
+        print_message "$GREEN" "✅ Resource symlink created"
+        log "INFO" "Symlink: $resources_symlink -> $resources_target"
+        return 0
+    else
+        print_message "$RED" "❌ Failed to create symlink"
+        return 1
+    fi
+}
+
+# ============================================
 # MANAGEMENT SCRIPTS
 # ============================================
 create_management_scripts() {
@@ -956,8 +988,8 @@ main() {
     echo -e "${CYAN}"
     cat << "EOF"
 ╔═══════════════════════════════════════════════════════╗
-║     RSG RedM Framework Installer v3.3 FINAL           ║
-║     Auto-retry main/master + No faulty verification  ║
+║     RSG RedM Framework Installer v3.4 FINAL           ║
+║     Fixed: Resource path with symlink                 ║
 ╚═══════════════════════════════════════════════════════╝
 EOF
     echo -e "${NC}"
@@ -970,35 +1002,38 @@ EOF
     
     print_message "$CYAN" "\n━━━ Installation Starting ━━━\n"
     
-    print_message "$CYAN" "Step 1/10: Installing dependencies..."
+    print_message "$CYAN" "Step 1/11: Installing dependencies..."
     install_dependencies
     
-    print_message "$CYAN" "Step 2/10: Finding latest RedM build..."
+    print_message "$CYAN" "Step 2/11: Finding latest RedM build..."
     check_new_artifact || exit 1
     
-    print_message "$CYAN" "Step 3/10: Configuring MariaDB..."
+    print_message "$CYAN" "Step 3/11: Configuring MariaDB..."
     setup_mariadb
     validate_sql_connection || exit 1
     
-    print_message "$CYAN" "Step 4/10: Downloading RedM artifacts..."
+    print_message "$CYAN" "Step 4/11: Downloading RedM artifacts..."
     download_artifact "${INSTALL_DIR}/server" || exit 1
     
-    print_message "$CYAN" "Step 5/10: Downloading RSG recipe..."
+    print_message "$CYAN" "Step 5/11: Downloading RSG recipe..."
     download_recipe || exit 1
     
-    print_message "$CYAN" "Step 6/10: Executing RSG recipe (10-15 min)..."
+    print_message "$CYAN" "Step 6/11: Executing RSG recipe (10-15 min)..."
     execute_recipe || exit 1
     
-    print_message "$CYAN" "Step 7/10: Configuring server..."
+    print_message "$CYAN" "Step 7/11: Configuring server..."
     configure_server_cfg || exit 1
     
-    print_message "$CYAN" "Step 8/10: Creating management scripts..."
+    print_message "$CYAN" "Step 8/11: Creating resource symlink..."
+    create_resource_symlink || exit 1
+    
+    print_message "$CYAN" "Step 9/11: Creating management scripts..."
     create_management_scripts
     
-    print_message "$CYAN" "Step 9/10: Setting up systemd service..."
+    print_message "$CYAN" "Step 10/11: Setting up systemd service..."
     create_systemd_service
     
-    print_message "$CYAN" "Step 10/10: Configuring firewall..."
+    print_message "$CYAN" "Step 11/11: Configuring firewall..."
     configure_firewall
     
     print_message "$CYAN" "\n━━━ Final Verification ━━━\n"
