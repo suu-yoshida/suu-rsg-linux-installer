@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# RSG RedM Framework - Installation Script v3.4 FINAL
-# Fixed: Resource path resolution with symlink
+# RSG RedM Framework - Installation Script v4.0 FINAL
+# Added: txAdmin or Standalone choice + OneSync fix + placeholder replacement
 
 # ============================================
 # COLORS
@@ -38,6 +38,7 @@ SERVER_PORT="30120"
 TXADMIN_PORT="40120"
 MAX_CLIENTS="32"
 STEAM_HEX=""
+USE_TXADMIN="no"
 
 # URLs
 ARTIFACT_PAGE_URL="https://runtime.fivem.net/artifacts/fivem/build_proot_linux/master/"
@@ -152,6 +153,32 @@ get_user_input() {
     echo -e "${YELLOW}Press ENTER to use default values shown in [brackets]${NC}"
     echo ""
     
+    echo -e "${BOLD}━━━ Server Mode ━━━${NC}"
+    echo -e "${CYAN}Choose server mode:${NC}"
+    echo -e "  ${GREEN}1)${NC} txAdmin (Web interface - recommended)"
+    echo -e "  ${GREEN}2)${NC} Standalone (Console only)"
+    echo ""
+    while true; do
+        echo -ne "${GREEN}Select mode ${CYAN}[1/2]${NC}: "
+        read mode_choice
+        case $mode_choice in
+            1)
+                USE_TXADMIN="yes"
+                print_message "$CYAN" "   → Using txAdmin mode"
+                break
+                ;;
+            2)
+                USE_TXADMIN="no"
+                print_message "$CYAN" "   → Using Standalone mode"
+                break
+                ;;
+            *)
+                echo -e "${RED}   ❌ Invalid choice. Enter 1 or 2${NC}"
+                ;;
+        esac
+    done
+    echo ""
+    
     echo -e "${BOLD}━━━ Server Configuration ━━━${NC}"
     while true; do
         echo -ne "${GREEN}CFX License Key ${YELLOW}[required]${NC}: "
@@ -215,10 +242,12 @@ get_user_input() {
     [[ ! -z "$input_server_port" ]] && SERVER_PORT=$input_server_port
     echo -e "${CYAN}   → Server: ${SERVER_PORT}${NC}"
     
-    echo -ne "${GREEN}txAdmin Port ${CYAN}[${TXADMIN_PORT}]${NC}: "
-    read input_txadmin_port
-    [[ ! -z "$input_txadmin_port" ]] && TXADMIN_PORT=$input_txadmin_port
-    echo -e "${CYAN}   → txAdmin: ${TXADMIN_PORT}${NC}"
+    if [[ "$USE_TXADMIN" == "yes" ]]; then
+        echo -ne "${GREEN}txAdmin Port ${CYAN}[${TXADMIN_PORT}]${NC}: "
+        read input_txadmin_port
+        [[ ! -z "$input_txadmin_port" ]] && TXADMIN_PORT=$input_txadmin_port
+        echo -e "${CYAN}   → txAdmin: ${TXADMIN_PORT}${NC}"
+    fi
     
     echo ""
     echo -e "${BOLD}━━━ Admin Configuration (Optional) ━━━${NC}"
@@ -234,6 +263,13 @@ get_user_input() {
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${GREEN}              Configuration Summary${NC}"
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BOLD}Mode:${NC}"
+    if [[ "$USE_TXADMIN" == "yes" ]]; then
+        echo -e "  Type:              ${CYAN}txAdmin (Web Interface)${NC}"
+    else
+        echo -e "  Type:              ${CYAN}Standalone (Console)${NC}"
+    fi
+    echo ""
     echo -e "${BOLD}Server:${NC}"
     echo -e "  Name:              ${CYAN}$SERVER_NAME${NC}"
     echo -e "  Max Players:       ${CYAN}$MAX_CLIENTS${NC}"
@@ -246,12 +282,12 @@ get_user_input() {
     echo ""
     echo -e "${BOLD}Network:${NC}"
     echo -e "  Server Port:       ${CYAN}$SERVER_PORT${NC}"
-    echo -e "  txAdmin Port:      ${CYAN}$TXADMIN_PORT${NC}"
+    [[ "$USE_TXADMIN" == "yes" ]] && echo -e "  txAdmin Port:      ${CYAN}$TXADMIN_PORT${NC}"
     echo ""
     [[ ! -z "$STEAM_HEX" ]] && echo -e "${BOLD}Admin:${NC}\n  Steam HEX:         ${CYAN}$STEAM_HEX${NC}\n"
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     
-    log "INFO" "Configuration: Server=$SERVER_NAME, Install=$INSTALL_DIR, DB=$DB_NAME:$DB_PORT"
+    log "INFO" "Configuration: Mode=$USE_TXADMIN, Server=$SERVER_NAME, Install=$INSTALL_DIR, DB=$DB_NAME:$DB_PORT"
     
     echo ""
     echo -ne "${YELLOW}Continue with this configuration? [Y/n]: ${NC}"
@@ -301,7 +337,7 @@ download_artifact() {
     exec_cmd "tar -xf fx.tar.xz"
     rm -f fx.tar.xz
     [[ -d "alpine/opt/cfx-server/alpine" ]] && rm -rf "alpine/opt/cfx-server/alpine"
-    chmod +x run.sh
+    chmod +x run.sh FXServer 2>/dev/null
     
     print_message "$GREEN" "✅ Artifact installed"
     return 0
@@ -462,7 +498,6 @@ def download_github(src, dest, ref="main", subpath=""):
         cmd = ["git", "clone", "--quiet", "--depth", "1", "--branch", ref, src, dest]
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         
-        # Auto-retry with master if main fails
         if result.returncode != 0 and ref == "main":
             log_msg(f"[WARNING] Branch 'main' not found, trying 'master'...")
             cmd = ["git", "clone", "--quiet", "--depth", "1", "--branch", "master", src, dest]
@@ -562,7 +597,6 @@ def waste_time(seconds):
     log_msg(f"[INFO] Waiting {seconds}s (GitHub rate limiting)...")
     time.sleep(seconds)
 
-# Main execution
 if len(sys.argv) < 7:
     print("Usage: script.py <log_file> <recipe_file> <base_dir> <db_name> <db_user> <db_pass> <db_port>")
     sys.exit(1)
@@ -660,7 +694,6 @@ PYTHON_SCRIPT
     if [[ $exit_code -eq 0 ]]; then
         print_message "$GREEN" "✅ Recipe executed successfully"
         
-        # Count resources installed
         local resource_count=$(find "${deploy_path}/resources" -maxdepth 2 -type d -name 'rsg-*' 2>/dev/null | wc -l)
         print_message "$CYAN" "   📦 Installed $resource_count RSG resources"
         
@@ -683,17 +716,22 @@ configure_server_cfg() {
     
     if [[ ! -f "$server_cfg" ]]; then
         print_message "$RED" "❌ server.cfg not found! Recipe may have failed."
-        print_message "$YELLOW" "Expected location: $server_cfg"
         return 1
     fi
     
-    # Replace placeholders
+    # Add OneSync at the beginning
+    sed -i '1i ## OneSync (REQUIRED for ox_lib)\nset onesync on\nset onesync_enabled 1\n' "$server_cfg"
+    
+    # Replace all placeholders
     sed -i "s/{{svLicense}}/${CFX_LICENSE}/g" "$server_cfg"
     sed -i "s/{{serverEndpoints}}/endpoint_add_tcp \"0.0.0.0:${SERVER_PORT}\"\nendpoint_add_udp \"0.0.0.0:${SERVER_PORT}\"/g" "$server_cfg"
     sed -i "s/{{maxClients}}/${MAX_CLIENTS}/g" "$server_cfg"
     sed -i "s|{{dbConnectionString}}|mysql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}?charset=utf8mb4|g" "$server_cfg"
+    sed -i "s/{{recipeName}}/RSG Framework/g" "$server_cfg"
+    sed -i "s/{{serverName}}/${SERVER_NAME}/g" "$server_cfg"
+    sed -i "s/{{recipeDescription}}/Red Dead Redemption Roleplay Server/g" "$server_cfg"
     
-    # Set hostname
+    # Update hostname
     if grep -q "sv_hostname" "$server_cfg"; then
         sed -i "s/sv_hostname .*/sv_hostname \"${SERVER_NAME}\"/g" "$server_cfg"
     else
@@ -702,24 +740,7 @@ configure_server_cfg() {
     
     # Add Steam HEX if provided
     if [[ ! -z "$STEAM_HEX" ]]; then
-        if ! grep -q "add_principal identifier.steam:${STEAM_HEX}" "$server_cfg"; then
-            cat >> "$server_cfg" <<EOF
-
-# Admin identifiers
-add_ace group.admin command allow
-add_ace group.admin command.quit deny
-add_principal identifier.steam:${STEAM_HEX} group.admin
-EOF
-        fi
-    else
-        if ! grep -q "add_principal identifier" "$server_cfg"; then
-            cat >> "$server_cfg" <<EOF
-
-# Admin identifiers (add your Steam/Discord IDs)
-# add_principal identifier.steam:YOUR_STEAM_HEX group.admin
-# add_principal identifier.discord:YOUR_DISCORD_ID group.admin
-EOF
-        fi
+        sed -i "s/identifier.license:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/identifier.steam:${STEAM_HEX}/g" "$server_cfg"
     fi
     
     print_message "$GREEN" "✅ server.cfg configured"
@@ -727,7 +748,7 @@ EOF
 }
 
 # ============================================
-# RESOURCE SYMLINK (FIX)
+# RESOURCE SYMLINK
 # ============================================
 create_resource_symlink() {
     print_message "$BLUE" "🔗 Creating resource symlink..."
@@ -736,21 +757,16 @@ create_resource_symlink() {
     local resources_symlink="${server_dir}/resources"
     local resources_target="${INSTALL_DIR}/txData/resources"
     
-    # Remove existing symlink or directory
     if [[ -L "$resources_symlink" ]]; then
         rm -f "$resources_symlink"
-        log "INFO" "Removed existing symlink: $resources_symlink"
     elif [[ -d "$resources_symlink" ]]; then
         rm -rf "$resources_symlink"
-        log "INFO" "Removed existing directory: $resources_symlink"
     fi
     
-    # Create symlink
     ln -s "$resources_target" "$resources_symlink"
     
     if [[ -L "$resources_symlink" ]]; then
         print_message "$GREEN" "✅ Resource symlink created"
-        log "INFO" "Symlink: $resources_symlink -> $resources_target"
         return 0
     else
         print_message "$RED" "❌ Failed to create symlink"
@@ -764,34 +780,74 @@ create_resource_symlink() {
 create_management_scripts() {
     print_message "$BLUE" "📝 Creating management scripts..."
     
-    cat > "${INSTALL_DIR}/start.sh" <<'EOF'
+    if [[ "$USE_TXADMIN" == "yes" ]]; then
+        # txAdmin mode
+        cat > "${INSTALL_DIR}/start.sh" <<EOF
 #!/bin/bash
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCREEN_NAME="$(hostname)_redm"
-cd "${SCRIPT_DIR}/server"
-if screen -list | grep -q "$SCREEN_NAME"; then
-    echo "✅ Server running: $SCREEN_NAME"
-    echo "Use ./attach.sh to connect"
-    exit 1
+SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+SCREEN_NAME="\$(hostname)_redm_txadmin"
+cd "\${SCRIPT_DIR}/server"
+
+if screen -list | grep -q "\$SCREEN_NAME"; then
+    echo "✅ txAdmin running: \$SCREEN_NAME"
+    echo "Access: http://\$(hostname -I | awk '{print \$1}'):${TXADMIN_PORT}"
+    exit 0
 fi
-echo "🚀 Starting server: $SCREEN_NAME"
-screen -dmS "$SCREEN_NAME" bash -c "./run.sh +exec ${SCRIPT_DIR}/txData/server.cfg"
-sleep 2
-if screen -list | grep -q "$SCREEN_NAME"; then
-    echo "✅ Started successfully"
-    echo "Console: screen -r $SCREEN_NAME"
+
+echo "🚀 Starting txAdmin..."
+screen -dmS "\$SCREEN_NAME" bash -c "./FXServer +set citizen_dir alpine/opt/cfx-server/citizen/ +set sv_licenseKey ${CFX_LICENSE} +set txAdminPort ${TXADMIN_PORT} +set txDataPath \${SCRIPT_DIR}/txData"
+
+sleep 3
+
+if screen -list | grep -q "\$SCREEN_NAME"; then
+    echo "✅ txAdmin started!"
+    echo "Access: http://\$(hostname -I | awk '{print \$1}'):${TXADMIN_PORT}"
+    echo "Console: screen -r \$SCREEN_NAME (CTRL+A then D to detach)"
 else
     echo "❌ Failed to start"
     exit 1
 fi
 EOF
+    else
+        # Standalone mode
+        cat > "${INSTALL_DIR}/start.sh" <<'EOF'
+#!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCREEN_NAME="$(hostname)_redm"
+cd "${SCRIPT_DIR}/server"
+
+if screen -list | grep -q "$SCREEN_NAME"; then
+    echo "✅ Server running: $SCREEN_NAME"
+    echo "Use ./attach.sh to connect"
+    exit 0
+fi
+
+echo "🚀 Starting server: $SCREEN_NAME"
+screen -dmS "$SCREEN_NAME" bash -c "./run.sh +exec ${SCRIPT_DIR}/txData/server.cfg"
+
+sleep 2
+
+if screen -list | grep -q "$SCREEN_NAME"; then
+    echo "✅ Started successfully"
+    echo "Console: screen -r $SCREEN_NAME (CTRL+A then D to detach)"
+else
+    echo "❌ Failed to start"
+    exit 1
+fi
+EOF
+    fi
 
     cat > "${INSTALL_DIR}/stop.sh" <<'EOF'
 #!/bin/bash
-SCREEN_NAME="$(hostname)_redm"
-if screen -list | grep -q "$SCREEN_NAME"; then
-    screen -S "$SCREEN_NAME" -X quit
+SCREEN_NAME_1="$(hostname)_redm"
+SCREEN_NAME_2="$(hostname)_redm_txadmin"
+
+if screen -list | grep -q "$SCREEN_NAME_1"; then
+    screen -S "$SCREEN_NAME_1" -X quit
     echo "✅ Server stopped"
+elif screen -list | grep -q "$SCREEN_NAME_2"; then
+    screen -S "$SCREEN_NAME_2" -X quit
+    echo "✅ txAdmin stopped"
 else
     echo "⚠️  Server not running"
 fi
@@ -807,12 +863,19 @@ EOF
 
     cat > "${INSTALL_DIR}/attach.sh" <<'EOF'
 #!/bin/bash
-SCREEN_NAME="$(hostname)_redm"
-if screen -list | grep -q "$SCREEN_NAME"; then
-    echo "📺 Attaching to console: $SCREEN_NAME"
+SCREEN_NAME_1="$(hostname)_redm"
+SCREEN_NAME_2="$(hostname)_redm_txadmin"
+
+if screen -list | grep -q "$SCREEN_NAME_1"; then
+    echo "📺 Attaching to console: $SCREEN_NAME_1"
     echo "⚠️  Detach: CTRL+A then D"
     sleep 2
-    screen -r "$SCREEN_NAME"
+    screen -r "$SCREEN_NAME_1"
+elif screen -list | grep -q "$SCREEN_NAME_2"; then
+    echo "📺 Attaching to console: $SCREEN_NAME_2"
+    echo "⚠️  Detach: CTRL+A then D"
+    sleep 2
+    screen -r "$SCREEN_NAME_2"
 else
     echo "❌ Server not running"
 fi
@@ -841,6 +904,7 @@ if [[ $confirm == [Yy] ]]; then
     echo "📥 Downloading..."
     wget -q --show-progress "$URL" -O fx.tar.xz
     tar -xf fx.tar.xz && rm fx.tar.xz
+    chmod +x run.sh FXServer 2>/dev/null
     echo "✅ Updated to $LATEST"
     "${SCRIPT_DIR}/start.sh"
 fi
@@ -891,16 +955,17 @@ configure_firewall() {
     if command -v ufw &> /dev/null; then
         ufw allow ${SERVER_PORT}/tcp >> "${LOG_FILE}" 2>&1
         ufw allow ${SERVER_PORT}/udp >> "${LOG_FILE}" 2>&1
-        ufw allow ${TXADMIN_PORT}/tcp >> "${LOG_FILE}" 2>&1
+        [[ "$USE_TXADMIN" == "yes" ]] && ufw allow ${TXADMIN_PORT}/tcp >> "${LOG_FILE}" 2>&1
         print_message "$GREEN" "✅ UFW configured"
     elif command -v firewall-cmd &> /dev/null; then
         firewall-cmd --permanent --add-port=${SERVER_PORT}/tcp >> "${LOG_FILE}" 2>&1
         firewall-cmd --permanent --add-port=${SERVER_PORT}/udp >> "${LOG_FILE}" 2>&1
-        firewall-cmd --permanent --add-port=${TXADMIN_PORT}/tcp >> "${LOG_FILE}" 2>&1
+        [[ "$USE_TXADMIN" == "yes" ]] && firewall-cmd --permanent --add-port=${TXADMIN_PORT}/tcp >> "${LOG_FILE}" 2>&1
         firewall-cmd --reload >> "${LOG_FILE}" 2>&1
         print_message "$GREEN" "✅ firewalld configured"
     else
-        print_message "$YELLOW" "⚠️  No firewall detected. Manual config needed: ${SERVER_PORT}, ${TXADMIN_PORT}"
+        print_message "$YELLOW" "⚠️  No firewall detected. Manual config needed: ${SERVER_PORT}"
+        [[ "$USE_TXADMIN" == "yes" ]] && print_message "$YELLOW" "    Also open: ${TXADMIN_PORT}"
     fi
 }
 
@@ -944,27 +1009,37 @@ display_summary() {
     print_message "$GREEN" "║        Installation Complete! 🎉           ║"
     print_message "$GREEN" "╚════════════════════════════════════════════╝"
     echo ""
+    if [[ "$USE_TXADMIN" == "yes" ]]; then
+        echo -e "${BOLD}Mode:${NC} txAdmin (Web Interface)"
+    else
+        echo -e "${BOLD}Mode:${NC} Standalone (Console)"
+    fi
     echo -e "${BOLD}Server:${NC} $SERVER_NAME"
     echo -e "${BOLD}Build:${NC} $LATEST_ARTIFACT"
     echo -e "${BOLD}Path:${NC} $INSTALL_DIR"
     echo -e "${BOLD}Database:${NC} $DB_NAME ($table_count tables)"
-    echo -e "${BOLD}Resources:${NC} $resource_count RSG resources installed"
+    echo -e "${BOLD}Resources:${NC} $resource_count RSG resources"
     echo ""
     print_message "$CYAN" "Commands:"
     echo "  ${INSTALL_DIR}/start.sh      - Start server"
     echo "  ${INSTALL_DIR}/stop.sh       - Stop server"
+    echo "  ${INSTALL_DIR}/restart.sh    - Restart server"
     echo "  ${INSTALL_DIR}/attach.sh     - Access console"
     echo "  ${INSTALL_DIR}/update.sh     - Update RedM build"
     echo ""
     print_message "$CYAN" "Access:"
-    echo "  F8 Console: connect $server_ip:$SERVER_PORT"
-    echo "  txAdmin: http://$server_ip:$TXADMIN_PORT"
+    if [[ "$USE_TXADMIN" == "yes" ]]; then
+        echo "  txAdmin: http://$server_ip:$TXADMIN_PORT"
+        echo "  Game: connect $server_ip:$SERVER_PORT"
+    else
+        echo "  F8 Console: connect $server_ip:$SERVER_PORT"
+    fi
     echo ""
     print_message "$CYAN" "Logs:"
-    echo "  Install log: ${LOG_FILE}"
-    echo "  Recipe log:  ${RECIPE_LOG}"
+    echo "  Install: ${LOG_FILE}"
+    echo "  Recipe:  ${RECIPE_LOG}"
     echo ""
-    print_message "$GREEN" "🚀 Start server: cd ${INSTALL_DIR} && ./start.sh"
+    print_message "$GREEN" "🚀 Start: cd ${INSTALL_DIR} && ./start.sh"
     echo ""
 }
 
@@ -988,8 +1063,8 @@ main() {
     echo -e "${CYAN}"
     cat << "EOF"
 ╔═══════════════════════════════════════════════════════╗
-║     RSG RedM Framework Installer v3.4 FINAL           ║
-║     Fixed: Resource path with symlink                 ║
+║     RSG RedM Framework Installer v4.0 FINAL           ║
+║     txAdmin or Standalone + OneSync + Symlink fix    ║
 ╚═══════════════════════════════════════════════════════╝
 EOF
     echo -e "${NC}"
