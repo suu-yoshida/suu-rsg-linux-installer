@@ -323,7 +323,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🔄 Changelog
 
-### Version 5.0 (Current)
+### Version 1.2 (Current)
 - ✨ Added txAdmin PIN auto-display  
 - ✨ Real-time recipe execution progress  
 - ✨ Password confirmation for database  
@@ -332,11 +332,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - 🐛 Fixed resource path symlink  
 - 🐛 Fixed txAdmin Linux compatibility  
 
-### Version 4.1
+### Version 1.1
 - ✨ txAdmin/Standalone mode selection  
 - 🐛 Fixed FXServer execution on Linux  
 
-### Version 4.0
+### Version 1.0
 - 🎉 Initial release  
 - ✨ Automated RSG Framework deployment  
 - ✨ Interactive configuration  
