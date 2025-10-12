@@ -1,7 +1,6 @@
 #!/bin/bash
 
-# RSG RedM Framework - Installation Script v4.1 FINAL
-# Fixed: txAdmin on Linux using run.sh with environment variables
+# RSG RedM Framework - Installation Script v1.1
 
 # ============================================
 # COLORS
