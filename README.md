@@ -1,250 +1,304 @@
-# WORK IN PROGRESS DO NOT USE YET IT WILL BROKE YOUR SERVER AND NETWORK!!!!
-# RSG Linux Server Installer
+# RSG RedM Framework - LINUX Automated Installer
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen)]()
-[![RedM](https://img.shields.io/badge/RedM-Compatible-red)]()
-[![RSG Framework](https://img.shields.io/badge/RSG-Framework-blue)]()
+<p align="center">
+  <img src="https://img.shields.io/badge/Version-5.0-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
+  <img src="https://img.shields.io/badge/Platform-Linux-orange.svg" alt="Platform">
+  <img src="https://img.shields.io/badge/RedM-Compatible-red.svg" alt="RedM">
+</p>
 
-Automated installation script for **RSG Framework** on Linux servers with full automation, SQL injection verification, and management tools.
+A comprehensive, interactive bash script for automated deployment of RSG Framework RedM servers on Linux. Features one-click installation with txAdmin or standalone modes, real-time progress tracking, and complete server management tools.
 
 ## ✨ Features
 
-- 🚀 **One-line installation** from GitHub
-- 📦 **Automated RSG recipe execution** with all resources
-- 🗄️ **MariaDB auto-configuration** with SQL verification
-- 🔍 **Latest RedM artifact detection** and download
-- 🛠️ **Management scripts** (start, stop, restart, attach, update)
-- 🔧 **Systemd service** for auto-start on boot
-- 🔥 **Firewall auto-configuration** (UFW/firewalld)
-- 📊 **Database verification** with table count
-- 📝 **Detailed logging** for troubleshooting
-- 🐧 **Ubuntu/Debian support** (tested on Ubuntu 20.04/22.04/24.04)
+### 🚀 Automated Installation
+- **Interactive Setup**: Guided configuration with validation
+- **Dual Modes**: Choose between txAdmin (web interface) or Standalone (console)
+- **Smart Artifact Selection**: Automatically fetches latest RedM build
+- **Recipe Execution**: Real-time visual progress with 60+ installation tasks
+- **OneSync Auto-Config**: Automatic configuration for ox_lib compatibility
 
-## 🚀 Quick Install
+### 🎯 Server Management
+- **Management Scripts**: `start.sh`, `stop.sh`, `restart.sh`, `attach.sh`, `update.sh`
+- **txAdmin PIN Display**: Automatic PIN extraction and display on startup
+- **Screen Integration**: Persistent server sessions with easy console access
+- **Update System**: One-command artifact updates with backup
+- **Complete Uninstaller**: Clean removal of all components
 
-### One-liner (recommended)
+### 🗄️ Database
+- **MariaDB Integration**: Automated database creation and user setup
+- **Password Confirmation**: Double-entry validation for security
+- **Custom Ports**: Support for non-standard database ports
+- **SQL Injection**: Automatic execution of RSG framework tables
 
-```
-curl -fsSL https://raw.githubusercontent.com/suu-yoshida/suu-rsg-linux-installer/refs/heads/main/deploy-rsg.sh | sudo bash
-```
-
-or with wget:
-
-```
-wget -qO- https://raw.githubusercontent.com/suu-yoshida/suu-rsg-linux-installer/refs/heads/main/deploy-rsg.sh | sudo bash
-```
-
-### Manual Installation
-
-```
-# Download the script
-wget https://raw.githubusercontent.com/suu-yoshida/suu-rsg-linux-installer/refs/heads/main/deploy-rsg.sh
-
-# Make it executable
-chmod +x deploy-rsg.sh
-
-# Run the installer
-sudo ./deploy-rsg.sh
-```
+### 🔧 Advanced Features
+- **Resource Symlink**: Proper path resolution for RedM resources
+- **Firewall Configuration**: Automatic UFW/firewalld rules
+- **Systemd Service**: Optional auto-start on boot
+- **Comprehensive Logging**: Detailed installation and recipe logs
+- **Verbose Mode**: Debug output for troubleshooting
 
 ## 📋 Prerequisites
 
-- **OS**: Ubuntu 20.04+ or Debian 10+
-- **RAM**: Minimum 4GB (8GB recommended)
-- **Disk**: Minimum 20GB free space
-- **Network**: Active internet connection
-- **Access**: Root or sudo privileges
-- **CFX License**: Valid license key from [Cfx.re Keymaster](https://keymaster.fivem.net)
+- **OS**: Ubuntu 20.04+ / Debian 11+ (tested)
+- **Privileges**: Root/sudo access
+- **Network**: Internet connection for downloads
+- **Disk Space**: ~5GB free space
+- **License**: CFX.re license key ([Get one here](https://keymaster.fivem.net))
 
-## 📖 What the Script Does
+## 🚀 Quick Start
 
-1. ✅ Installs system dependencies (wget, curl, git, MariaDB, etc.)
-2. 🔍 Finds and downloads the latest RedM build
-3. ⚙️ Configures MariaDB with custom database
-4. 📥 Downloads official RSG recipe from GitHub
-5. 🎯 Executes recipe (downloads 30+ resources)
-6. 💾 Injects SQL data (players, characters, horses, etc.)
-7. 🔧 Configures server.cfg with your settings
-8. 📝 Creates management scripts
-9. 🚀 Sets up systemd service
-10. 🔥 Configures firewall rules
+### Installation
 
-## 🎮 Usage
-
-### Starting the Server
-
+Download the installer  
+```bash
+wget https://raw.githubusercontent.com/suu-yoshida/suu-rsg-linux-installer/refs/heads/main/deploy-rsg.sh
 ```
-cd /home/RedM  # or your install directory
+
+Make it executable  
+```bash
+chmod +x deploy-rsg.sh
+```
+
+Run the installer  
+```bash
+sudo ./deploy-rsg.sh
+```
+
+### What to Expect
+
+1. **Server Mode Selection**: Choose txAdmin or Standalone  
+2. **Configuration Input**: Enter server name, license, database credentials  
+3. **Automated Setup**: Sit back while the script:  
+   - Installs dependencies (MariaDB, Python, Git, etc.)  
+   - Downloads latest RedM build  
+   - Executes RSG recipe (60+ tasks with real-time display)  
+   - Configures server.cfg with OneSync  
+   - Sets up management scripts  
+4. **Completion**: Server ready to start!
+
+### Starting Your Server
+
+#### txAdmin Mode
+```bash
+cd /home/RedM
 ./start.sh
 ```
+Output will display:  
+🚀 Starting txAdmin...  
+⏳ Waiting for txAdmin to start...  
+✅ txAdmin started!  
 
-or with systemd:
+╔═══════════════════════════════════════╗  
+  🔐       TXADMIN PIN CODE               
+╠═══════════════════════════════════════╣  
+                  1234                     
+╚═══════════════════════════════════════╝  
+🌐 Access: http://YOUR_IP:40120
 
+#### Standalone Mode
+```bash
+cd /home/RedM
+./start.sh
 ```
-sudo systemctl start redm-rsg
-```
+✅ Started successfully  
+Console: `screen -r hostname_redm` (CTRL+A then D to detach)
 
-### Stopping the Server
+## 📖 Usage
 
-```
+### Management Commands
+
+```bash
+cd /home/RedM
+./start.sh
 ./stop.sh
-```
-
-or:
-
-```
-sudo systemctl stop redm-rsg
-```
-
-### Accessing Console
-
-```
+./restart.sh
 ./attach.sh
-```
-
-Press `CTRL+A` then `D` to detach without stopping the server.
-
-### Updating RedM Build
-
-```
 ./update.sh
+./uninstall.sh
 ```
 
-### Server Management
+### Console Access
 
+Attach to server console:  
+```bash
+screen -r $(hostname)_redm      # For standalone
+screen -r $(hostname)_redm_txadmin  # For txAdmin
 ```
-./restart.sh           # Restart server
-systemctl status redm-rsg  # Check status
-journalctl -u redm-rsg -f  # View logs
-```
+Detach: `CTRL+A` then `D`
 
-## 📁 Installation Structure
+### Logs
 
-```
-/home/RedM/
-├── server/                # RedM server files
-│   ├── run.sh            # Server executable
-│   └── alpine/           # Server binaries
-├── txData/               # Server data
-│   ├── server.cfg        # Server configuration
-│   ├── resources/        # All resources
-│   │   ├── [framework]/  # RSG core resources
-│   │   ├── [standalone]/ # Standalone resources
-│   │   └── [cfx-default]/# Default CFX resources
-├── recipe/               # Recipe files
-├── start.sh             # Start script
-├── stop.sh              # Stop script
-├── restart.sh           # Restart script
-├── attach.sh            # Console access
-└── update.sh            # Update script
+- **Installation Log**: `/var/log/redm/redm_rsg_install_TIMESTAMP.log`
+- **Recipe Log**: `/var/log/redm/recipe_TIMESTAMP.log`
+- **Latest Log**: `/var/log/redm/latest.log`
+
+### Verbose Mode
+
+For detailed output during installation:  
+```bash
+sudo ./deploy-rsg.sh --verbose
 ```
 
-## ⚙️ Configuration
+## 🔧 Configuration
+
+### Default Installation Paths
+
+| Component | Path |
+|-----------|------|
+| Server Files | `/home/RedM/server/` |
+| Data Directory | `/home/RedM/txData/` |
+| Resources | `/home/RedM/txData/resources/` |
+| Server Config | `/home/RedM/txData/server.cfg` |
+| Logs | `/var/log/redm/` |
 
 ### Default Ports
 
-- **Server**: 30120 (TCP/UDP)
-- **txAdmin**: 40120 (TCP)
-- **Database**: 3306 (TCP)
+| Service | Port |
+|---------|------|
+| Game Server | 30120 |
+| txAdmin | 40120 |
+| MariaDB | 3306 |
 
-All ports are configurable during installation.
+All ports can be customized during installation.
 
-### Database
+### Server Configuration
 
-- **Database Name**: `rsg_db`
-- **Database User**: `rsg_user`
-- **Charset**: utf8mb4
-
-### Editing Configuration
-
-```
+Edit `server.cfg`:  
+```bash
 nano /home/RedM/txData/server.cfg
 ```
 
-After editing, restart the server:
+Key settings:  
+- **OneSync**: Pre-configured and enabled  
+- **Database**: Auto-configured connection string  
+- **Endpoints**: TCP/UDP on configured port  
+- **Resources**: Organized in categories (`[standalone]`, `[framework]`, `[mapmods]`)
 
+## 🗑️ Uninstallation
+
+Complete removal of all components:  
+```bash
+cd /home/RedM
+sudo ./uninstall.sh
 ```
-./restart.sh
-```
 
-## 🔒 Security Recommendations
+Type `DELETE` (uppercase) to confirm. This will remove:  
+- ✅ Server files and directories  
+- ✅ Database and user  
+- ✅ Systemd service  
+- ✅ Firewall rules  
+- ✅ All logs  
 
-1. **Change default passwords** in server.cfg
-2. **Add your Steam/Discord IDs** as admin
-3. **Configure firewall** properly
-4. **Regular backups** of database and server files
-5. **Keep RedM updated** using `./update.sh`
+Optional: Remove MariaDB when prompted.
 
 ## 🐛 Troubleshooting
 
-### Check Logs
+### Server Won't Start
 
+Check logs:  
+```bash
+tail -f /var/log/redm/latest.log
 ```
-# Installation logs
-cat /var/log/redm/latest.log
 
-# Server logs
-journalctl -u redm-rsg -f
-
-# Server console
+Attach to console to see errors:  
+```bash
+cd /home/RedM
 ./attach.sh
 ```
 
-### Common Issues
+### Resources Not Found
 
-**Script fails during download:**
-- Check internet connection
-- Verify GitHub is accessible
-- Try manual installation method
+Verify symlink:  
+```bash
+ls -la /home/RedM/server/resources
+```
+Should point to: `../txData/resources`
 
-**Database connection errors:**
-- Verify MariaDB is running: `systemctl status mariadb`
-- Check credentials in server.cfg
-- Test connection: `mysql -u rsg_user -p`
+Recreate if needed:  
+```bash
+cd /home/RedM/server
+rm -f resources
+ln -s ../txData/resources ./resources
+```
 
-**Server won't start:**
-- Check license key in server.cfg
-- Verify all resources loaded: check console output
-- Review logs: `journalctl -u redm-rsg -n 50`
+### Database Connection Failed
 
-**Port already in use:**
-- Check if another server is running: `netstat -tulpn | grep 30120`
-- Stop conflicting service or change port in server.cfg
+Test database:  
+```bash
+mysql -u rsg_user -p -D rsg_db
+```
 
-## 📊 What Gets Installed
+Check connection string in `server.cfg`:  
+```bash
+grep mysql_connection_string /home/RedM/txData/server.cfg
+```
 
-### Core Resources (from RSG Recipe)
+### txAdmin PIN Not Displaying
 
-- rsg-core (Framework core)
-- rsg-multicharacter (Character selection)
-- rsg-appearance (Character customization)
-- rsg-inventory (Inventory system)
-- rsg-banking (Banking system)
-- rsg-horses (Horse system)
-- rsg-weapons (Weapon system)
-- rsg-shops (Shop system)
-- And 20+ more resources...
+Manually check console:  
+```bash
+screen -r $(hostname)_redm_txadmin
+```
 
-### Database Tables
+Look for: `TX_PIN: XXXX`
 
-The installer creates 30+ tables including:
-- `players` - Player data
-- `characters` - Character information
-- `player_horses` - Horse ownership
-- `player_weapons` - Weapon storage
-- `bank_accounts` - Banking data
-- And many more...
+## 📦 What Gets Installed
+
+### System Packages
+- `mariadb-server` - Database server
+- `python3`, `python3-pip` - Python runtime
+- `git` - Version control
+- `screen` - Terminal multiplexer
+- `wget`, `curl` - Download tools
+- `tar`, `xz-utils` - Archive tools
+- `unzip`, `jq` - Utilities
+
+### Python Packages
+- `pyyaml` - YAML parser for recipe execution
+
+### RedM Components
+- Latest RedM server build
+- RSG Framework (60+ resources)
+- ox_lib, oxmysql, ox_target
+- All RSG core resources
+- Map mods and standalone resources
+
+## 🏗️ Architecture
+
+```
+/home/RedM/
+├── server/ # RedM server binaries
+│ ├── run.sh # Server executable
+│ ├── alpine/ # Server runtime
+│ └── resources/ # Symlink to txData/resources
+├── txData/ # Server data
+│ ├── server.cfg # Server configuration
+│ ├── resources/ # All game resources
+│ │ ├── [cfx-default]/
+│ │ ├── [standalone]/
+│ │ ├── [framework]/
+│ │ └── [mapmods]/
+│ └── myLogo.png
+├── recipe/
+│ └── rsgcore.yaml # Installation recipe
+├── start.sh # Start script
+├── stop.sh # Stop script
+├── restart.sh # Restart script
+├── attach.sh # Console attach
+├── update.sh # Update script
+└── uninstall.sh # Uninstaller
+```
 
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+1. Fork the repository  
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)  
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)  
+4. Push to the branch (`git push origin feature/AmazingFeature`)  
+5. Open a Pull Request  
 
 ## 📝 License
 
@@ -252,21 +306,43 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Credits
 
-- **RSG Framework** by [Rexshack Gaming](https://github.com/Rexshack-RedM)
-- **RedM** by [Cfx.re](https://redm.net)
-- Inspired by [fxserver_deployer](https://github.com/solareon/fxserver_deployer)
+### Frameworks & Inspiration
+- **[RSG Framework](https://github.com/Rexshack-RedM)** - RedM framework foundation  
+- **[txAdmin](https://github.com/tabarra/txAdmin)** - Server management interface  
+- **[CFX.re](https://fivem.net/)** - FiveM/RedM platform  
 
-## 📞 Support
+### Tools & Resources
+- **[Dolyyyy/cfx_bash_updater_and_restarter](https://github.com/Dolyyyy/cfx_bash_updater_and_restarter)** - Inspiration for artifact update system and screen management  
+- **[solareon/fxserver_deployer](https://github.com/solareon/fxserver_deployer)** - Reference for recipe-based deployment architecture  
 
-- **Issues**: [GitHub Issues](https://github.com/YOUR-USERNAME/rsg-server-installer/issues)
+### Special Thanks
+- **Overextended** - ox_lib, oxmysql, ox_target  
+- **RSG** - Resources and support  
+- All contributors to the RSG Framework ecosystem  
 
-## ⭐ Star History
 
-If this project helped you, please consider giving it a ⭐!
+## 🔄 Changelog
+
+### Version 5.0 (Current)
+- ✨ Added txAdmin PIN auto-display  
+- ✨ Real-time recipe execution progress  
+- ✨ Password confirmation for database  
+- ✨ Complete uninstall script  
+- 🐛 Fixed OneSync configuration  
+- 🐛 Fixed resource path symlink  
+- 🐛 Fixed txAdmin Linux compatibility  
+
+### Version 4.1
+- ✨ txAdmin/Standalone mode selection  
+- 🐛 Fixed FXServer execution on Linux  
+
+### Version 4.0
+- 🎉 Initial release  
+- ✨ Automated RSG Framework deployment  
+- ✨ Interactive configuration  
+- ✨ Database setup  
 
 ---
 
-**Made with ❤️ by Suu for the RSG community**
-```
-
-Avec ce README, les utilisateurs pourront installer ton script **en une seule commande** directement depuis GitHub![2][4][1][3]
+<p align="center">Made with ❤️ for the RedM community</p>
+<p align="center">⭐ Star this repository if you find it useful!</p>
