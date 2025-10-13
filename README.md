@@ -2,7 +2,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Version-5.0-blue.svg" alt="Version">
-  <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
+  <img src="https://img.shields.io/badge/License-Custom_NC-yellow.svg" alt="License">
   <img src="https://img.shields.io/badge/Platform-Linux-orange.svg" alt="Platform">
   <img src="https://img.shields.io/badge/RedM-Compatible-red.svg" alt="RedM">
 </p>
@@ -300,27 +300,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 4. Push to the branch (`git push origin feature/AmazingFeature`)  
 5. Open a Pull Request  
 
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Credits
-
-### Frameworks & Inspiration
-- **[RSG Framework](https://github.com/Rexshack-RedM)** - RedM framework foundation  
-- **[txAdmin](https://github.com/tabarra/txAdmin)** - Server management interface  
-- **[CFX.re](https://fivem.net/)** - FiveM/RedM platform  
-
-### Tools & Resources
-- **[Dolyyyy/cfx_bash_updater_and_restarter](https://github.com/Dolyyyy/cfx_bash_updater_and_restarter)** - Inspiration for artifact update system and screen management  
-- **[solareon/fxserver_deployer](https://github.com/solareon/fxserver_deployer)** - Reference for recipe-based deployment architecture  
-
-### Special Thanks
-- **Overextended** - ox_lib, oxmysql, ox_target  
-- **RSG** - Resources and support  
-- All contributors to the RSG Framework ecosystem  
-
-
 ## 🔄 Changelog
 
 ### Version 1.2 (Current)
@@ -342,7 +321,61 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - ✨ Interactive configuration  
 - ✨ Database setup  
 
+## 📝 License
+
+This project is licensed under a Custom Non-Commercial License - see the [LICENSE](LICENSE) file for details.
+
+**Summary:**
+- ✅ Free to use and modify for personal/non-commercial purposes
+- ✅ Must credit the original author (suu-yoshida)
+- ✅ Modified versions must use the same license
+- ❌ Cannot be sold or used commercially without permission
+
+## 🙏 Credits
+
+### Frameworks & Inspiration
+- **[RSG Framework](https://github.com/Rexshack-RedM)** - RedM framework foundation  
+- **[txAdmin](https://github.com/tabarra/txAdmin)** - Server management interface  
+- **[CFX.re](https://fivem.net/)** - FiveM/RedM platform  
+
+### Tools & Resources
+- **[Dolyyyy/cfx_bash_updater_and_restarter](https://github.com/Dolyyyy/cfx_bash_updater_and_restarter)** - Inspiration for artifact update system and screen management  
+- **[solareon/fxserver_deployer](https://github.com/solareon/fxserver_deployer)** - Reference for recipe-based deployment architecture  
+
+### Special Thanks
+- **Overextended** - ox_lib, oxmysql, ox_target  
+- **RSG** - Resources and support  
+- All contributors to the RSG Framework ecosystem
+
 ---
 
 <p align="center">Made with ❤️ for the RedM community</p>
 <p align="center">⭐ Star this repository if you find it useful!</p>
+
+## ⚠️ Attribution Requirements
+
+If you use or modify this installer, you **MUST**:
+
+1. ✅ Credit **suu-yoshida** as the original author
+2. ✅ Link to this repository: `https://github.com/suu-yoshida/suu-rsg-linux-installer`
+3. ✅ Keep the entire **Credits section** intact in your documentation
+4. ✅ Credit all referenced authors:
+   - **Rexshack-RedM** (RSG Framework)
+   - **tabarra** (txAdmin)
+   - **Dolyyyy** (cfx_bash_updater_and_restarter)
+   - **solareon** (fxserver_deployer)
+   - **CFX.re** (RedM platform)
+5. ✅ Indicate what changes you made (if any)
+
+**Example attribution:**
+
+Based on RSG RedM Framework Linux Installer by suu-yoshida
+Original: https://github.com/suu-yoshida/suu-rsg-linux-installer
+Modified by [Your Name] - [Description of changes]
+
+Credits to all referenced projects:
+- RSG Framework by Rexshack-RedM
+- Update system inspired by Dolyyyy's cfx_bash_updater_and_restarter
+- Deployment architecture inspired by solareon's fxserver_deployer
+
+❌ **Removing credits or claiming this work as entirely your own violates the license.**
