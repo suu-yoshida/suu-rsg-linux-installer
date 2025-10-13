@@ -1,0 +1,50 @@
+Custom License - Non-Commercial Use with Attribution
+
+Copyright (c) 2025 suu-yoshida
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to use
+and modify the Software for personal and non-commercial purposes, subject to
+the following conditions:
+
+1. ATTRIBUTION: Any use or modification of this Software must:
+   a) Give appropriate credit to the original author (suu-yoshida)
+   b) Provide a link to the original repository
+   c) Indicate if changes were made
+   d) Maintain and display all credits to referenced authors and their projects
+      as listed in the Credits section of the README
+
+2. REFERENCED WORKS: Users must acknowledge and credit all third-party tools,
+   frameworks, and resources that were used as reference or inspiration for
+   this project, including but not limited to:
+   - RSG Framework (Rexshack-RedM)
+   - txAdmin (tabarra)
+   - cfx_bash_updater_and_restarter (Dolyyyy)
+   - fxserver_deployer (solareon)
+   - CFX.re and all other contributors mentioned in project documentation
+
+3. NON-COMMERCIAL: The Software may NOT be sold, used for commercial purposes,
+   or included in any paid product or service without explicit written
+   permission from the copyright holder.
+
+4. SHARE-ALIKE: If you modify, transform, or build upon this Software, you must:
+   a) Distribute your contributions under this same license
+   b) Maintain all original credits and attributions
+   c) Add your own credits without removing existing ones
+
+5. COPYRIGHT NOTICE: The above copyright notice, this permission notice, and
+   all attribution requirements must be included in all copies or substantial
+   portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+VIOLATION OF ATTRIBUTION REQUIREMENTS:
+Failure to properly credit the original author or any referenced works
+constitutes a breach of this license and terminates your rights to use,
+modify, or distribute this Software.
