@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/badge/RedM-Compatible-red.svg" alt="RedM">
 </p>
 
-A comprehensive, interactive bash script for automated deployment of RSG Framework RedM servers on Linux. Features one-click installation with txAdmin or standalone modes, real-time progress tracking, and complete server management tools.
+No more hassle installing RedM on Linux - finally a simple, exclusive version for RSG! A comprehensive, interactive bash script for automated deployment of RSG Framework RedM servers on Linux. Features one-click installation with txAdmin or standalone modes, real-time progress tracking, and complete server management tools.
 
 ## ✨ Features
 
