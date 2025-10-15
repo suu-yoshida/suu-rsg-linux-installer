@@ -1,7 +1,7 @@
 # RSG RedM Framework - LINUX Automated Installer
 # DEV VERSION, TESTED ON A UBUNTU SERVER VM ON A PROXOMOX HYPERVISOR
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-5.0-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/Version-1.2-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/License-Custom_NC-yellow.svg" alt="License">
   <img src="https://img.shields.io/badge/Platform-Linux-orange.svg" alt="Platform">
   <img src="https://img.shields.io/badge/RedM-Compatible-red.svg" alt="RedM">
