@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# RSG RedM Framework - Installation Script v1.2
-# + Password confirmation + Real-time recipe + PIN display + Uninstall
+# RSG RedM Framework - Installation Script v1.3
+# + PhpMyAdmin + Advanced DB Access + DB Management Scripts
 
 # ============================================
 # COLORS
@@ -38,6 +38,9 @@ TXADMIN_PORT="40120"
 MAX_CLIENTS="32"
 STEAM_HEX=""
 USE_TXADMIN="no"
+DB_ACCESS_MODE="local"
+DB_BIND_IP="127.0.0.1"
+INSTALL_PHPMYADMIN="no"
 
 ARTIFACT_PAGE_URL="https://runtime.fivem.net/artifacts/fivem/build_proot_linux/master/"
 RSG_RECIPE_URL="https://raw.githubusercontent.com/Rexshack-RedM/txAdminRecipe/refs/heads/main/rsgcore.yaml"
@@ -231,6 +234,76 @@ get_user_input() {
     echo -e "${CYAN}   → Port: ${DB_PORT}${NC}"
     
     echo ""
+    echo -e "${BOLD}━━━ Database Access Configuration ━━━${NC}"
+    echo -e "${CYAN}Choose database access method:${NC}"
+    echo -e "  ${GREEN}1)${NC} Local only (127.0.0.1) - ${CYAN}RECOMMENDED${NC}"
+    echo -e "  ${GREEN}2)${NC} Bind to specific IP (VPN/Private Network)"
+    echo -e "  ${GREEN}3)${NC} SSH Tunnel (Port forwarding setup)"
+    echo -e "  ${GREEN}4)${NC} Public access ${RED}⚠️  DANGEROUS${NC}"
+    echo ""
+    
+    while true; do
+        echo -ne "${GREEN}Select access mode ${CYAN}[1-4]${NC}: "
+        read db_access_choice
+        case $db_access_choice in
+            1)
+                DB_ACCESS_MODE="local"
+                DB_BIND_IP="127.0.0.1"
+                print_message "$CYAN" "   → Local only (secure)"
+                break
+                ;;
+            2)
+                DB_ACCESS_MODE="bind"
+                echo -ne "${GREEN}Enter IP to bind ${YELLOW}[required]${NC}: "
+                read DB_BIND_IP
+                if [[ ! -z "$DB_BIND_IP" ]]; then
+                    print_message "$CYAN" "   → Binding to: ${DB_BIND_IP}"
+                    break
+                else
+                    echo -e "${RED}   ❌ IP required!${NC}"
+                fi
+                ;;
+            3)
+                DB_ACCESS_MODE="ssh"
+                DB_BIND_IP="127.0.0.1"
+                print_message "$CYAN" "   → SSH Tunnel (will generate config)"
+                break
+                ;;
+            4)
+                DB_ACCESS_MODE="public"
+                DB_BIND_IP="0.0.0.0"
+                echo -e "${RED}${BOLD}⚠️  WARNING: This exposes your database to the internet!${NC}"
+                echo -ne "${YELLOW}Type 'DANGEROUS' to confirm: ${NC}"
+                read confirm_dangerous
+                if [[ "$confirm_dangerous" == "DANGEROUS" ]]; then
+                    print_message "$RED" "   → Public access enabled (not recommended)"
+                    break
+                else
+                    echo -e "${GREEN}   → Cancelled, choosing local only${NC}"
+                    DB_ACCESS_MODE="local"
+                    DB_BIND_IP="127.0.0.1"
+                    break
+                fi
+                ;;
+            *)
+                echo -e "${RED}   ❌ Invalid choice. Enter 1-4${NC}"
+                ;;
+        esac
+    done
+    
+    echo ""
+    echo -e "${BOLD}━━━ PhpMyAdmin Installation ━━━${NC}"
+    echo -ne "${GREEN}Install PhpMyAdmin? ${CYAN}[Y/n]${NC}: "
+    read install_phpmyadmin_choice
+    if [[ "$install_phpmyadmin_choice" =~ ^[Nn]$ ]]; then
+        INSTALL_PHPMYADMIN="no"
+        print_message "$YELLOW" "   → PhpMyAdmin skipped"
+    else
+        INSTALL_PHPMYADMIN="yes"
+        print_message "$CYAN" "   → PhpMyAdmin will be installed"
+    fi
+    
+    echo ""
     echo -e "${BOLD}━━━ Network Ports ━━━${NC}"
     
     echo -ne "${GREEN}Server Port ${CYAN}[${SERVER_PORT}]${NC}: "
@@ -275,6 +348,9 @@ get_user_input() {
     echo -e "  Name:              ${CYAN}$DB_NAME${NC}"
     echo -e "  User:              ${CYAN}$DB_USER${NC}"
     echo -e "  Port:              ${CYAN}$DB_PORT${NC}"
+    echo -e "  Access Mode:       ${CYAN}$DB_ACCESS_MODE${NC}"
+    echo -e "  Bind IP:           ${CYAN}$DB_BIND_IP${NC}"
+    echo -e "  PhpMyAdmin:        ${CYAN}$INSTALL_PHPMYADMIN${NC}"
     echo ""
     echo -e "${BOLD}Network:${NC}"
     echo -e "  Server Port:       ${CYAN}$SERVER_PORT${NC}"
@@ -343,7 +419,7 @@ install_dependencies() {
         exit 1
     fi
     
-    local packages=("wget" "curl" "tar" "git" "xz-utils" "mariadb-server" "mariadb-client" "unzip" "screen" "jq" "python3" "python3-pip")
+    local packages=("wget" "curl" "tar" "git" "xz-utils" "mariadb-server" "mariadb-client" "unzip" "screen" "jq" "python3" "python3-pip" "net-tools")
     
     print_message "$CYAN" "   Installing: ${packages[*]}"
     if ! exec_cmd "DEBIAN_FRONTEND=noninteractive apt-get install -y ${packages[*]}"; then
@@ -399,6 +475,179 @@ EOF
         show_last_error
         exit 1
     fi
+}
+
+configure_database_access() {
+    print_message "$BLUE" "🔒 Configuring database access..."
+    
+    local mariadb_conf="/etc/mysql/mariadb.conf.d/50-server.cnf"
+    
+    if [[ -f "$mariadb_conf" ]]; then
+        cp "$mariadb_conf" "${mariadb_conf}.backup"
+        
+        if grep -q "^bind-address" "$mariadb_conf"; then
+            sed -i "s/^bind-address.*/bind-address = ${DB_BIND_IP}/" "$mariadb_conf"
+        else
+            echo "bind-address = ${DB_BIND_IP}" >> "$mariadb_conf"
+        fi
+        
+        exec_cmd "systemctl restart mariadb"
+        sleep 2
+        
+        case $DB_ACCESS_MODE in
+            local)
+                print_message "$GREEN" "✅ Database bound to localhost (secure)"
+                ;;
+            bind)
+                print_message "$GREEN" "✅ Database bound to ${DB_BIND_IP}"
+                ;;
+            ssh)
+                print_message "$GREEN" "✅ Database configured for SSH tunnel"
+                create_ssh_tunnel_guide
+                ;;
+            public)
+                print_message "$RED" "⚠️  Database exposed publicly on ${DB_BIND_IP}:${DB_PORT}"
+                mysql -u root -p"${DB_PASSWORD}" --port=${DB_PORT} <<EOF >> "${LOG_FILE}" 2>&1
+GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'%' IDENTIFIED BY '${DB_PASSWORD}';
+FLUSH PRIVILEGES;
+EOF
+                ;;
+        esac
+    else
+        print_message "$YELLOW" "⚠️  MariaDB config not found"
+    fi
+}
+
+create_ssh_tunnel_guide() {
+    local guide_file="${INSTALL_DIR}/SSH_TUNNEL_GUIDE.txt"
+    local server_ip=$(hostname -I | awk '{print $1}')
+    
+    cat > "$guide_file" <<EOF
+╔═══════════════════════════════════════════════════════╗
+║          SSH TUNNEL CONFIGURATION GUIDE               ║
+╚═══════════════════════════════════════════════════════╝
+
+Your database is configured to accept local connections only.
+To access it remotely, use SSH tunneling (secure method).
+
+━━━ From your LOCAL machine: ━━━
+
+# Basic tunnel (command line):
+ssh -L 3306:localhost:${DB_PORT} root@${server_ip}
+
+# Keep tunnel running in background:
+ssh -fN -L 3306:localhost:${DB_PORT} root@${server_ip}
+
+# Windows (PuTTY):
+1. Session → Host: ${server_ip}
+2. Connection → SSH → Tunnels
+3. Source port: 3306
+4. Destination: localhost:${DB_PORT}
+5. Click "Add" then "Open"
+
+━━━ Then connect to database: ━━━
+
+Host: localhost
+Port: 3306
+User: ${DB_USER}
+Pass: [your database password]
+Database: ${DB_NAME}
+
+━━━ For PhpMyAdmin: ━━━
+
+After tunnel is active, access:
+http://localhost/phpmyadmin
+
+Or forward HTTP port too:
+ssh -L 3306:localhost:${DB_PORT} -L 8080:localhost:80 root@${server_ip}
+Then access: http://localhost:8080/phpmyadmin
+
+EOF
+
+    chmod 644 "$guide_file"
+    print_message "$CYAN" "   📝 SSH tunnel guide: ${guide_file}"
+}
+
+install_phpmyadmin() {
+    if [[ "$INSTALL_PHPMYADMIN" != "yes" ]]; then
+        return 0
+    fi
+    
+    print_message "$BLUE" "🌐 Installing PhpMyAdmin..."
+    
+    print_message "$CYAN" "   Pre-configuring packages..."
+    
+    echo "phpmyadmin phpmyadmin/dbconfig-install boolean true" | debconf-set-selections
+    echo "phpmyadmin phpmyadmin/app-password-confirm password ${DB_PASSWORD}" | debconf-set-selections
+    echo "phpmyadmin phpmyadmin/mysql/admin-pass password ${DB_PASSWORD}" | debconf-set-selections
+    echo "phpmyadmin phpmyadmin/mysql/app-pass password ${DB_PASSWORD}" | debconf-set-selections
+    echo "phpmyadmin phpmyadmin/reconfigure-webserver multiselect apache2" | debconf-set-selections
+    
+    print_message "$CYAN" "   Installing Apache2, PHP and PhpMyAdmin..."
+    exec_cmd "DEBIAN_FRONTEND=noninteractive apt-get install -y phpmyadmin apache2 php php-mysql libapache2-mod-php php-mbstring php-zip php-gd php-json php-curl"
+    
+    exec_cmd "phpenmod mbstring"
+    exec_cmd "a2enconf phpmyadmin"
+    
+    exec_cmd "systemctl restart apache2"
+    exec_cmd "systemctl enable apache2"
+    
+    local pma_config="/etc/phpmyadmin/config.inc.php"
+    
+    if [[ -f "$pma_config" ]]; then
+        cat >> "$pma_config" <<EOF
+
+/* Custom RSG Server Config */
+\$cfg['LoginCookieValidity'] = 86400;
+\$cfg['Servers'][\$i]['host'] = 'localhost';
+\$cfg['Servers'][\$i]['port'] = '${DB_PORT}';
+\$cfg['Servers'][\$i]['compress'] = false;
+\$cfg['Servers'][\$i]['AllowNoPassword'] = false;
+EOF
+    fi
+    
+    local server_ip=$(hostname -I | awk '{print $1}')
+    cat > "${INSTALL_DIR}/PHPMYADMIN_ACCESS.txt" <<EOF
+╔═══════════════════════════════════════════════════════╗
+║            PHPMYADMIN ACCESS INFORMATION              ║
+╚═══════════════════════════════════════════════════════╝
+
+URL: http://${server_ip}/phpmyadmin
+
+Database Login:
+  Username: ${DB_USER}
+  Password: [your database password]
+  
+Or use root:
+  Username: root
+  Password: [your root database password]
+
+Security Recommendations:
+  1. Change default URL (rename /usr/share/phpmyadmin)
+  2. Use .htaccess authentication
+  3. Restrict access by IP in Apache config
+  4. Consider disabling after use
+
+To disable PhpMyAdmin:
+  sudo a2disconf phpmyadmin
+  sudo systemctl reload apache2
+
+To enable PhpMyAdmin:
+  sudo a2enconf phpmyadmin
+  sudo systemctl reload apache2
+
+To change URL (example to /secret-admin):
+  sudo nano /etc/apache2/conf-available/phpmyadmin.conf
+  Change: Alias /phpmyadmin /usr/share/phpmyadmin
+  To:     Alias /secret-admin /usr/share/phpmyadmin
+  sudo systemctl reload apache2
+EOF
+
+    chmod 644 "${INSTALL_DIR}/PHPMYADMIN_ACCESS.txt"
+    
+    print_message "$GREEN" "✅ PhpMyAdmin installed"
+    print_message "$CYAN" "   Access: http://${server_ip}/phpmyadmin"
+    print_message "$CYAN" "   Info: ${INSTALL_DIR}/PHPMYADMIN_ACCESS.txt"
 }
 
 validate_sql_connection() {
@@ -776,6 +1025,193 @@ create_resource_symlink() {
     fi
 }
 
+create_db_management_scripts() {
+    print_message "$BLUE" "📝 Creating database management scripts..."
+    
+    # db-open.sh
+    cat > "${INSTALL_DIR}/db-open.sh" <<EOF
+#!/bin/bash
+
+RED='\033[0;31m'
+YELLOW='\033[0;33m'
+GREEN='\033[0;32m'
+CYAN='\033[0;96m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+DB_PORT="${DB_PORT}"
+MARIADB_CONF="/etc/mysql/mariadb.conf.d/50-server.cnf"
+
+clear
+echo -e "\${RED}\${BOLD}"
+cat << 'BANNER'
+╔═══════════════════════════════════════════════════════╗
+║     ⚠️  ⚠️  ⚠️  DATABASE PORT OPENER  ⚠️  ⚠️  ⚠️         ║
+╚═══════════════════════════════════════════════════════╝
+BANNER
+echo -e "\${NC}"
+
+echo -e "\${RED}\${BOLD}⚠️  SECURITY WARNING ⚠️\${NC}"
+echo ""
+echo -e "\${YELLOW}Opening the database port exposes your server to:\${NC}"
+echo "  • Brute force attacks"
+echo "  • SQL injection attempts"
+echo "  • Unauthorized access"
+echo "  • Data theft"
+echo ""
+echo -e "\${CYAN}\${BOLD}Safer alternatives:\${NC}"
+echo "  1. Use SSH tunnel: ssh -L 3306:localhost:${DB_PORT} user@server"
+echo "  2. Use a VPN connection"
+echo "  3. Access PhpMyAdmin locally"
+echo ""
+echo -e "\${YELLOW}Only proceed if you know what you're doing!\${NC}"
+echo ""
+echo -ne "\${RED}Type 'OPEN' (uppercase) to confirm: \${NC}"
+read confirmation
+
+if [[ "\$confirmation" != "OPEN" ]]; then
+    echo -e "\${GREEN}Cancelled. Database remains secure.\${NC}"
+    exit 0
+fi
+
+echo ""
+echo -e "\${CYAN}Opening database port...\${NC}"
+
+if [[ -f "\$MARIADB_CONF" ]]; then
+    cp "\$MARIADB_CONF" "\${MARIADB_CONF}.before_open"
+    
+    if grep -q "^bind-address" "\$MARIADB_CONF"; then
+        sed -i "s/^bind-address.*/bind-address = 0.0.0.0/" "\$MARIADB_CONF"
+    else
+        echo "bind-address = 0.0.0.0" >> "\$MARIADB_CONF"
+    fi
+    
+    systemctl restart mariadb
+    
+    if command -v ufw &> /dev/null; then
+        ufw allow \${DB_PORT}/tcp
+    elif command -v firewall-cmd &> /dev/null; then
+        firewall-cmd --permanent --add-port=\${DB_PORT}/tcp
+        firewall-cmd --reload
+    fi
+    
+    echo ""
+    echo -e "\${GREEN}✅ Database port opened\${NC}"
+    echo ""
+    echo -e "\${YELLOW}Current status:\${NC}"
+    echo "  • Port \${DB_PORT} is now accessible from anywhere"
+    echo "  • Database bound to: 0.0.0.0"
+    echo ""
+    echo -e "\${RED}\${BOLD}⚠️  CLOSE THE PORT when you're done!\${NC}"
+    echo -e "\${CYAN}Run: ./db-close.sh\${NC}"
+else
+    echo -e "\${RED}MariaDB config not found!\${NC}"
+    exit 1
+fi
+EOF
+
+    # db-close.sh
+    cat > "${INSTALL_DIR}/db-close.sh" <<EOF
+#!/bin/bash
+
+GREEN='\033[0;32m'
+CYAN='\033[0;96m'
+YELLOW='\033[0;33m'
+NC='\033[0m'
+
+DB_PORT="${DB_PORT}"
+MARIADB_CONF="/etc/mysql/mariadb.conf.d/50-server.cnf"
+
+echo -e "\${CYAN}╔═══════════════════════════════════════════════════════╗\${NC}"
+echo -e "\${CYAN}║          DATABASE PORT CLOSER (Secure)                ║\${NC}"
+echo -e "\${CYAN}╚═══════════════════════════════════════════════════════╝\${NC}"
+echo ""
+
+echo -e "\${CYAN}Closing database port...\${NC}"
+
+if [[ -f "\$MARIADB_CONF" ]]; then
+    if grep -q "^bind-address" "\$MARIADB_CONF"; then
+        sed -i "s/^bind-address.*/bind-address = 127.0.0.1/" "\$MARIADB_CONF"
+    else
+        echo "bind-address = 127.0.0.1" >> "\$MARIADB_CONF"
+    fi
+    
+    systemctl restart mariadb
+    
+    if command -v ufw &> /dev/null; then
+        ufw delete allow \${DB_PORT}/tcp 2>/dev/null
+    elif command -v firewall-cmd &> /dev/null; then
+        firewall-cmd --permanent --remove-port=\${DB_PORT}/tcp 2>/dev/null
+        firewall-cmd --reload
+    fi
+    
+    echo ""
+    echo -e "\${GREEN}✅ Database port closed\${NC}"
+    echo ""
+    echo -e "\${CYAN}Current status:\${NC}"
+    echo "  • Port \${DB_PORT} is now local-only"
+    echo "  • Database bound to: 127.0.0.1"
+    echo ""
+    echo -e "\${GREEN}Database is now secure!\${NC}"
+else
+    echo -e "\${RED}MariaDB config not found!\${NC}"
+    exit 1
+fi
+EOF
+
+    # db-status.sh
+    cat > "${INSTALL_DIR}/db-status.sh" <<EOF
+#!/bin/bash
+
+CYAN='\033[0;96m'
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[0;33m'
+NC='\033[0m'
+
+DB_PORT="${DB_PORT}"
+MARIADB_CONF="/etc/mysql/mariadb.conf.d/50-server.cnf"
+
+echo -e "\${CYAN}╔═══════════════════════════════════════════════════════╗\${NC}"
+echo -e "\${CYAN}║          DATABASE STATUS CHECK                        ║\${NC}"
+echo -e "\${CYAN}╚═══════════════════════════════════════════════════════╝\${NC}"
+echo ""
+
+if [[ -f "\$MARIADB_CONF" ]]; then
+    BIND_ADDR=\$(grep "^bind-address" "\$MARIADB_CONF" | awk '{print \$3}')
+    
+    echo -e "\${CYAN}Bind Address:\${NC} \$BIND_ADDR"
+    
+    if [[ "\$BIND_ADDR" == "127.0.0.1" ]]; then
+        echo -e "\${GREEN}Status: ✅ SECURE (localhost only)\${NC}"
+    elif [[ "\$BIND_ADDR" == "0.0.0.0" ]]; then
+        echo -e "\${RED}Status: ⚠️  EXPOSED (public access)\${NC}"
+    else
+        echo -e "\${YELLOW}Status: 🔒 RESTRICTED (\$BIND_ADDR)\${NC}"
+    fi
+    
+    echo ""
+    echo -e "\${CYAN}Listening on:\${NC}"
+    netstat -tuln 2>/dev/null | grep ":\${DB_PORT}" || ss -tuln 2>/dev/null | grep ":\${DB_PORT}"
+    
+    echo ""
+    echo -e "\${CYAN}Firewall rules:\${NC}"
+    if command -v ufw &> /dev/null; then
+        ufw status 2>/dev/null | grep "\${DB_PORT}" || echo "  No rules for port \${DB_PORT}"
+    elif command -v firewall-cmd &> /dev/null; then
+        firewall-cmd --list-ports 2>/dev/null | grep "\${DB_PORT}" || echo "  No rules for port \${DB_PORT}"
+    else
+        echo "  No firewall detected"
+    fi
+else
+    echo -e "\${RED}MariaDB config not found!\${NC}"
+fi
+EOF
+
+    chmod +x "${INSTALL_DIR}"/{db-open,db-close,db-status}.sh
+    print_message "$GREEN" "✅ Database management scripts created"
+}
+
 create_uninstall_script() {
     print_message "$BLUE" "📝 Creating uninstall script..."
     
@@ -806,6 +1242,7 @@ echo "  • Database user: ${DB_USER}"
 echo "  • Systemd service"
 echo "  • Firewall rules"
 echo "  • Logs"
+[[ "${INSTALL_PHPMYADMIN}" == "yes" ]] && echo "  • PhpMyAdmin"
 echo ""
 echo -e "\${RED}\${BOLD}⚠️  THIS CANNOT BE UNDONE! ⚠️\${NC}"
 echo ""
@@ -821,45 +1258,53 @@ echo ""
 echo -e "\${RED}━━━ Uninstalling ━━━\${NC}"
 echo ""
 
-echo -e "\${CYAN}[1/8] Stopping server...\${NC}"
+echo -e "\${CYAN}[1/9] Stopping server...\${NC}"
 screen -ls | grep "_redm" | cut -d. -f1 | awk '{print \$1}' | xargs -I {} screen -S {} -X quit 2>/dev/null
 echo "  ✓ Done"
 
-echo -e "\${CYAN}[2/8] Removing systemd service...\${NC}"
+echo -e "\${CYAN}[2/9] Removing systemd service...\${NC}"
 systemctl stop redm-rsg.service 2>/dev/null
 systemctl disable redm-rsg.service 2>/dev/null
 rm -f /etc/systemd/system/redm-rsg.service
 systemctl daemon-reload
 echo "  ✓ Done"
 
-echo -e "\${CYAN}[3/8] Removing database...\${NC}"
+echo -e "\${CYAN}[3/9] Removing database...\${NC}"
 mysql -u root -p"${DB_PASSWORD}" --port=${DB_PORT} <<SQL 2>/dev/null
 DROP DATABASE IF EXISTS \\\`${DB_NAME}\\\`;
 DROP USER IF EXISTS '${DB_USER}'@'localhost';
+DROP USER IF EXISTS '${DB_USER}'@'%';
 FLUSH PRIVILEGES;
 SQL
 echo "  ✓ Done"
 
-echo -e "\${CYAN}[4/8] Removing firewall rules...\${NC}"
+echo -e "\${CYAN}[4/9] Removing firewall rules...\${NC}"
 ufw delete allow ${SERVER_PORT}/tcp 2>/dev/null
 ufw delete allow ${SERVER_PORT}/udp 2>/dev/null
 ufw delete allow ${TXADMIN_PORT}/tcp 2>/dev/null
+ufw delete allow ${DB_PORT}/tcp 2>/dev/null
 echo "  ✓ Done"
 
-echo -e "\${CYAN}[5/8] Removing server files...\${NC}"
+echo -e "\${CYAN}[5/9] Removing server files...\${NC}"
 rm -rf "${INSTALL_DIR}"
 echo "  ✓ Done"
 
-echo -e "\${CYAN}[6/8] Removing logs...\${NC}"
+echo -e "\${CYAN}[6/9] Removing logs...\${NC}"
 rm -rf /var/log/redm
 echo "  ✓ Done"
 
-echo -e "\${CYAN}[7/8] Cleaning temp files...\${NC}"
+echo -e "\${CYAN}[7/9] Cleaning temp files...\${NC}"
 rm -f /tmp/txadmin_startup_*.log 2>/dev/null
 rm -f /tmp/recipe_executor.py 2>/dev/null
 echo "  ✓ Done"
 
-echo -e "\${CYAN}[8/8] Package cleanup...\${NC}"
+[[ "${INSTALL_PHPMYADMIN}" == "yes" ]] && {
+echo -e "\${CYAN}[8/9] Removing PhpMyAdmin...\${NC}"
+apt-get purge -y phpmyadmin apache2 php php-* &>/dev/null
+echo "  ✓ Done"
+}
+
+echo -e "\${CYAN}[9/9] Package cleanup...\${NC}"
 echo -ne "  Remove MariaDB? [y/N]: "
 read remove_mariadb
 if [[ "\$remove_mariadb" =~ ^[Yy]\$ ]]; then
@@ -1089,11 +1534,13 @@ configure_firewall() {
         ufw allow ${SERVER_PORT}/tcp >> "${LOG_FILE}" 2>&1
         ufw allow ${SERVER_PORT}/udp >> "${LOG_FILE}" 2>&1
         [[ "$USE_TXADMIN" == "yes" ]] && ufw allow ${TXADMIN_PORT}/tcp >> "${LOG_FILE}" 2>&1
+        [[ "$INSTALL_PHPMYADMIN" == "yes" ]] && ufw allow 80/tcp >> "${LOG_FILE}" 2>&1
         print_message "$GREEN" "✅ UFW configured"
     elif command -v firewall-cmd &> /dev/null; then
         firewall-cmd --permanent --add-port=${SERVER_PORT}/tcp >> "${LOG_FILE}" 2>&1
         firewall-cmd --permanent --add-port=${SERVER_PORT}/udp >> "${LOG_FILE}" 2>&1
         [[ "$USE_TXADMIN" == "yes" ]] && firewall-cmd --permanent --add-port=${TXADMIN_PORT}/tcp >> "${LOG_FILE}" 2>&1
+        [[ "$INSTALL_PHPMYADMIN" == "yes" ]] && firewall-cmd --permanent --add-port=80/tcp >> "${LOG_FILE}" 2>&1
         firewall-cmd --reload >> "${LOG_FILE}" 2>&1
         print_message "$GREEN" "✅ firewalld configured"
     else
@@ -1152,6 +1599,9 @@ display_summary() {
     echo "  ${INSTALL_DIR}/restart.sh     - Restart server"
     echo "  ${INSTALL_DIR}/attach.sh      - Access console"
     echo "  ${INSTALL_DIR}/update.sh      - Update RedM build"
+    echo "  ${INSTALL_DIR}/db-open.sh     - ⚠️  Open database port"
+    echo "  ${INSTALL_DIR}/db-close.sh    - 🔒 Close database port"
+    echo "  ${INSTALL_DIR}/db-status.sh   - 📊 Check database status"
     echo "  ${INSTALL_DIR}/uninstall.sh   - ⚠️  Complete uninstall"
     echo ""
     print_message "$CYAN" "Access:"
@@ -1162,6 +1612,30 @@ display_summary() {
         echo "  F8 Console: connect $server_ip:$SERVER_PORT"
     fi
     echo ""
+    
+    if [[ "$INSTALL_PHPMYADMIN" == "yes" ]]; then
+        print_message "$CYAN" "PhpMyAdmin:"
+        echo "  URL: http://$server_ip/phpmyadmin"
+        echo "  Info: ${INSTALL_DIR}/PHPMYADMIN_ACCESS.txt"
+        echo ""
+    fi
+    
+    if [[ "$DB_ACCESS_MODE" == "ssh" ]]; then
+        print_message "$CYAN" "SSH Tunnel:"
+        echo "  Guide: ${INSTALL_DIR}/SSH_TUNNEL_GUIDE.txt"
+        echo ""
+    fi
+    
+    print_message "$CYAN" "Database:"
+    echo "  Access Mode: $DB_ACCESS_MODE"
+    echo "  Bind IP: $DB_BIND_IP"
+    if [[ "$DB_ACCESS_MODE" == "local" ]] || [[ "$DB_ACCESS_MODE" == "ssh" ]]; then
+        echo "  Status: 🔒 Secure (localhost only)"
+    elif [[ "$DB_ACCESS_MODE" == "public" ]]; then
+        echo "  Status: ⚠️  Public (use db-close.sh to secure)"
+    fi
+    echo ""
+    
     print_message "$CYAN" "Logs:"
     echo "  Install: ${LOG_FILE}"
     echo "  Recipe:  ${RECIPE_LOG}"
@@ -1187,8 +1661,8 @@ main() {
     echo -e "${CYAN}"
     cat << "EOF"
 ╔═══════════════════════════════════════════════════════╗
-║     RSG RedM Framework Installer v5.0 FINAL           ║
-║     All features included + Ready to deploy!          ║
+║     RSG RedM Framework Installer v6.0 FINAL           ║
+║     + PhpMyAdmin + Advanced DB Management             ║
 ╚═══════════════════════════════════════════════════════╝
 EOF
     echo -e "${NC}"
@@ -1201,41 +1675,52 @@ EOF
     
     print_message "$CYAN" "\n━━━ Installation Starting ━━━\n"
     
-    print_message "$CYAN" "Step 1/12: Installing dependencies..."
+    print_message "$CYAN" "Step 1/15: Installing dependencies..."
     install_dependencies
     
-    print_message "$CYAN" "Step 2/12: Finding latest RedM build..."
+    print_message "$CYAN" "Step 2/15: Finding latest RedM build..."
     check_new_artifact || exit 1
     
-    print_message "$CYAN" "Step 3/12: Configuring MariaDB..."
+    print_message "$CYAN" "Step 3/15: Configuring MariaDB..."
     setup_mariadb
     validate_sql_connection || exit 1
     
-    print_message "$CYAN" "Step 4/12: Downloading RedM artifacts..."
+    print_message "$CYAN" "Step 4/15: Downloading RedM artifacts..."
     download_artifact "${INSTALL_DIR}/server" || exit 1
     
-    print_message "$CYAN" "Step 5/12: Downloading RSG recipe..."
+    print_message "$CYAN" "Step 5/15: Downloading RSG recipe..."
     download_recipe || exit 1
     
-    print_message "$CYAN" "Step 6/12: Executing RSG recipe (10-15 min)..."
+    print_message "$CYAN" "Step 6/15: Executing RSG recipe (10-15 min)..."
     execute_recipe || exit 1
     
-    print_message "$CYAN" "Step 7/12: Configuring server..."
+    print_message "$CYAN" "Step 7/15: Configuring server..."
     configure_server_cfg || exit 1
     
-    print_message "$CYAN" "Step 8/12: Creating resource symlink..."
+    print_message "$CYAN" "Step 8/15: Creating resource symlink..."
     create_resource_symlink || exit 1
     
-    print_message "$CYAN" "Step 9/12: Creating management scripts..."
+    print_message "$CYAN" "Step 9/15: Configuring database access..."
+    configure_database_access
+    
+    if [[ "$INSTALL_PHPMYADMIN" == "yes" ]]; then
+        print_message "$CYAN" "Step 10/15: Installing PhpMyAdmin..."
+        install_phpmyadmin
+    fi
+    
+    print_message "$CYAN" "Step 11/15: Creating management scripts..."
     create_management_scripts
     
-    print_message "$CYAN" "Step 10/12: Creating uninstall script..."
+    print_message "$CYAN" "Step 12/15: Creating database management scripts..."
+    create_db_management_scripts
+    
+    print_message "$CYAN" "Step 13/15: Creating uninstall script..."
     create_uninstall_script
     
-    print_message "$CYAN" "Step 11/12: Setting up systemd service..."
+    print_message "$CYAN" "Step 14/15: Setting up systemd service..."
     create_systemd_service
     
-    print_message "$CYAN" "Step 12/12: Configuring firewall..."
+    print_message "$CYAN" "Step 15/15: Configuring firewall..."
     configure_firewall
     
     print_message "$CYAN" "\n━━━ Final Verification ━━━\n"
